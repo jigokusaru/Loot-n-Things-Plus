@@ -28,7 +28,7 @@ public class LuckPermsProxy {
             }
         } catch (IllegalStateException e) {
             // This can happen if LuckPerms is not yet loaded. Fallback to OP check.
-            return player.hasPermission(2);
+            return player.createCommandSourceStack().hasPermission(2);
         }
         return false;
     }

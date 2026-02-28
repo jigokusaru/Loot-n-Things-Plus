@@ -2,12 +2,15 @@ package com.jigokusaru.lootnthings.loot_n_things.util;
 
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.user.User;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.fml.ModList;
 
+/**
+ * Manages permission checks, automatically using LuckPerms if available,
+ * otherwise falling back to the default operator check.
+ */
 public class PermissionManager {
 
     private static final boolean LUCKPERMS_INSTALLED = ModList.get().isLoaded("luckperms");
@@ -33,21 +36,13 @@ public class PermissionManager {
 
     public static boolean hasPermission(Player player, String permission) {
         if (LUCKPERMS_INSTALLED) {
-            if (luckPermsApi == null) {
-                try {
-                    luckPermsApi = LuckPermsProvider.get();
-                } catch (IllegalStateException e) {
-                    return player.hasPermission(2); // Fallback if API is still not ready
-                }
+            if (player instanceof ServerPlayer serverPlayer) {
+                return LuckPermsProxy.checkPermission(serverPlayer, permission);
             }
-            User user = luckPermsApi.getUserManager().getUser(player.getUUID());
-            if (user != null) {
-                return user.getCachedData().getPermissionData().checkPermission(permission).asBoolean();
-            }
-            return false;
+            return false; // Should not happen on server
         } else {
             // Fallback to default OP check if LuckPerms is not installed
-            return player.hasPermission(2);
+            return player.createCommandSourceStack().hasPermission(2);
         }
     }
 }
