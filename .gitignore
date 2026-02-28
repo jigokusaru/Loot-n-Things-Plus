@@ -5,9 +5,10 @@
 # Gradle
 .gradle/
 build/
-gradle/
-gradlew
-gradlew.bat
+# Do NOT ignore the Gradle wrapper scripts
+# gradlew
+# gradlew.bat
+# gradle/
 !gradle/wrapper/gradle-wrapper.jar
 
 # NeoForge MDK

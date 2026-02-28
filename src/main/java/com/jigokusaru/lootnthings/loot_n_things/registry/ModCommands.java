@@ -5,6 +5,7 @@ import com.jigokusaru.lootnthings.loot_n_things.Loot_n_things;
 import com.jigokusaru.lootnthings.loot_n_things.config.LootConfigManager;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
+import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -55,7 +56,7 @@ public class ModCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("lnt")
                 .then(Commands.literal("set")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.set"))
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
                                 .executes(context -> {
                                     Player player = context.getSource().getPlayerOrException();
@@ -87,14 +88,14 @@ public class ModCommands {
                                 })))
 
                 .then(Commands.literal("key")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.key"))
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
                                 .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), context.getSource().getPlayerOrException()))
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), EntityArgument.getPlayer(context, "target"))))))
 
                 .then(Commands.literal("remove")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.remove"))
                         .executes(context -> {
                             Player player = context.getSource().getPlayerOrException();
                             
@@ -135,7 +136,7 @@ public class ModCommands {
                         }))
 
                 .then(Commands.literal("reload")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.reload"))
                         .executes(context -> {
                             boolean success = LootLibrary.reload();
                             context.getSource().sendSuccess(() -> Component.literal(success ? "§aConfigs reloaded!" : "§cError in configs!"), true);
@@ -143,7 +144,7 @@ public class ModCommands {
                         }))
 
                 .then(Commands.literal("givebag")
-                        .requires(source -> source.hasPermission(2))
+                        .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.givebag"))
                         .then(Commands.argument("target", EntityArgument.player())
                                 .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
                                         .executes(context -> {
@@ -162,6 +163,7 @@ public class ModCommands {
                                         }))))
                 
                 .then(Commands.literal("pity")
+                        .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.pity"))
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(PITY_TIER_SUGGESTIONS)
                                 .executes(context -> {
                                     Player player = context.getSource().getPlayerOrException();
@@ -216,7 +218,7 @@ public class ModCommands {
                 displayData.put("Pos", posList);
                 displayData.putString("text", Component.Serializer.toJson(newName, level.registryAccess()));
                 displayData.putString("billboard", "center");
-                displayData.putInt("background", 0xFF000000); // Fully opaque black
+                displayData.putInt("background", 0xFF000000);
                 displayData.putBoolean("see_through", false);
                 textDisplay.load(displayData);
                 
