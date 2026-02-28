@@ -2,6 +2,10 @@
 
 Welcome to Loot and Things Plus, a highly configurable and powerful loot system for Minecraft NeoForge. This mod allows server administrators to create custom loot chests and loot bags with advanced features like weighted rewards, variables, pity timers, and server-wide announcements.
 
+## Compatibility
+- **Minecraft Version:** 1.21.1
+- **NeoForge Version:** 21.1.219+
+
 ## Features
 
 - **JSON-Based Loot Tables:** Easily create and edit loot tables using simple JSON files.
@@ -26,6 +30,7 @@ Welcome to Loot and Things Plus, a highly configurable and powerful loot system 
     - Universal command-based economy support for any plugin with commands.
 - **Server-Wide Broadcasts:** Announce when players open rare chests, win special items, or when a global deck is reshuffled.
 - **In-Game Commands:** A full suite of commands for admins to set loot chests, give keys/bags, and for players to check their pity status.
+- **Permissions:** Full support for permission plugins like LuckPerms, with a fallback to default operator levels.
 
 ## Configuration
 
@@ -164,6 +169,6 @@ These permissions control a player's ability to interact with loot chests and ba
 - `[score.objective_name]`: The player's score in the specified scoreboard objective.
 - `[tier]`: The clean name of the loot tier (e.g., `exampleChest`).
 - `<variable_name>`: A custom variable defined in a `vars` block.
-- `[<xp_level>*10]`: Simple math operations.
+- `[<xp_level>*10]`: Simple math operations. Supports `+`, `-`, `*`, `/` and can be combined with other numeric placeholders.
 
 Enjoy creating your unique loot experiences!
