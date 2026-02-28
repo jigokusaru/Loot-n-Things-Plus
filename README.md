@@ -32,6 +32,49 @@ Welcome to Loot and Things Plus, a highly configurable and powerful loot system 
 - **In-Game Commands:** A full suite of commands for admins to set loot chests, give keys/bags, and for players to check their pity status.
 - **Permissions:** Full support for permission plugins like LuckPerms, with a fallback to default operator levels.
 
+## Getting Started: A Quick Tutorial
+
+Here’s a step-by-step guide to creating your first loot chest and loot bag.
+
+### Part 1: Creating a Loot Chest
+
+1.  **Create the JSON File:**
+    - Navigate to your server's `config/lootnthings/chests/` directory.
+    - Create a new file named `my_first_chest.json`. The name of the file (`my_first_chest`) is your new **tier name**.
+    - Paste the example JSON from below into your new file and save it.
+
+2.  **Place a Chest in the World:**
+    - In-game, place a regular Minecraft chest (or any block with an inventory, like a barrel) where you want your loot chest to be.
+
+3.  **Set the Loot Tier:**
+    - Look directly at the chest you just placed.
+    - Type the command: `/lnt set my_first_chest`
+    - A floating nameplate should appear above the chest, and it is now a protected, unbreakable loot chest.
+
+4.  **Get the Key:**
+    - To open the chest, you need the correct key.
+    - Type the command: `/lnt key my_first_chest`
+    - This will give you a key specifically for that tier.
+
+5.  **Open the Chest:**
+    - Right-click the chest with the key in your hand to open the spinner and get your rewards!
+    - Left-click the chest to see a preview of all possible loot.
+
+### Part 2: Creating a Loot Bag
+
+1.  **Create the JSON File:**
+    - Navigate to your server's `config/lootnthings/bags/` directory.
+    - Create a new file named `my_first_bag.json`.
+    - Paste the example JSON from below into your new file and save it.
+
+2.  **Get the Loot Bag:**
+    - Type the command: `/lnt givebag @s my_first_bag`
+    - This will give you a loot bag item.
+
+3.  **Use the Bag:**
+    - **Right-click** the bag in your hand to open the spinner and get your rewards. The bag will be consumed.
+    - **Shift + Right-click** the bag to see a preview of all possible loot without consuming it.
+
 ## Configuration
 
 ### 1. Main Config (`config/lootnthings-common.toml`)
