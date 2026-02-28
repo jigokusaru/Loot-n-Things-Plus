@@ -23,20 +23,22 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomModelData;
+import net.minecraft.world.item.component.ItemLore;
 import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 public class LootLibrary {
     private static final Map<UUID, LootSession> SESSIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, Map<String, Long>> COOLDOWNS = new ConcurrentHashMap<>();
     private static final Map<String, List<Integer>> GLOBAL_DECKS = new ConcurrentHashMap<>();
-    private static final String PITY_TAG = "lootnthings_pity";
+    private static final String PITY_TAG = "lnt_pity";
 
     public static void onMenuClose(PlayerContainerEvent.Close event) {
         LootSession session = SESSIONS.remove(event.getEntity().getUUID());
@@ -106,7 +108,7 @@ public class LootLibrary {
                             super.clicked(slotId, button, clickType, playerEntity);
                         }
                         @Override
-                        public boolean stillValid(Player p) { return true; }
+                        public boolean stillValid(Player p_40220_) { return true; }
                     },
                     Component.literal(LootResolver.applyPlaceholders(title, player, json, null, null, tier)))));
         }
@@ -127,30 +129,33 @@ public class LootLibrary {
             JsonObject cost = json.getAsJsonObject("cost");
             String type = cost.get("type").getAsString();
             
-            if (type.equals("xp")) {
-                int amount = cost.get("amount").getAsInt();
-                if (player.experienceLevel < amount) {
-                    player.displayClientMessage(Component.literal("§cYou need " + amount + " XP levels to open this."), true);
-                    return false;
+            switch (type) {
+                case "xp" -> {
+                    int amount = cost.get("amount").getAsInt();
+                    if (player.experienceLevel < amount) {
+                        player.displayClientMessage(Component.literal("§cYou need " + amount + " XP levels to open this."), true);
+                        return false;
+                    }
                 }
-            } else if (type.equals("item")) {
-                int amount = cost.get("amount").getAsInt();
-                Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(cost.get("id").getAsString()));
-                if (player.getInventory().countItem(item) < amount) {
-                    player.displayClientMessage(Component.literal("§cYou need " + amount + " " + item.getDescription().getString() + " to open this."), true);
-                    return false;
+                case "item" -> {
+                    int amount = cost.get("amount").getAsInt();
+                    Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(cost.get("id").getAsString()));
+                    if (player.getInventory().countItem(item) < amount) {
+                        player.displayClientMessage(Component.literal("§cYou need " + amount + " " + item.getDescription().getString() + " to open this."), true);
+                        return false;
+                    }
                 }
-            } else if (type.equals("economy")) {
-                if (Loot_n_things.economy == null) {
-                    Loot_n_things.LOGGER.warn("Economy cost defined for tier '{}', but no economy system is enabled!", tier);
-                    return false; // Fail closed if economy isn't running
-                }
-                double amount = cost.get("amount").getAsDouble();
-                long longAmount = (long) (Config.COMMON.hasDecimals.get() ? amount * 100 : amount);
-                
-                if (!Loot_n_things.economy.hasEnough((ServerPlayer) player, longAmount)) {
-                    player.displayClientMessage(Component.literal("§cYou do not have enough money! You need " + Loot_n_things.economy.getCurrencyName(longAmount)), true);
-                    return false;
+                case "economy" -> {
+                    if (Loot_n_things.economy == null) {
+                        Loot_n_things.LOGGER.warn("Economy cost defined for tier '{}', but no economy system is enabled!", tier);
+                        return false; // Fail closed if economy isn't running
+                    }
+                    double amount = cost.get("amount").getAsDouble();
+                    long longAmount = (long) (Config.COMMON.hasDecimals.get() ? amount * 100 : amount);
+                    if (!Loot_n_things.economy.hasEnough((ServerPlayer) player, longAmount)) {
+                        player.displayClientMessage(Component.literal("§cYou do not have enough money! You need " + Loot_n_things.economy.getCurrencyName(longAmount)), true);
+                        return false;
+                    }
                 }
             }
         }
@@ -161,21 +166,22 @@ public class LootLibrary {
         JsonObject json = LootConfigManager.getLootFile(tier);
         if (json == null || !json.has("loot")) return;
         
-        // Consume cost and set cooldown AFTER checks have passed
         if (json.has("cost")) {
             JsonObject cost = json.getAsJsonObject("cost");
             String type = cost.get("type").getAsString();
             
-            if (type.equals("xp")) {
-                player.giveExperienceLevels(-cost.get("amount").getAsInt());
-            } else if (type.equals("item")) {
-                Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(cost.get("id").getAsString()));
-                player.getInventory().clearOrCountMatchingItems(p -> p.getItem() == item, cost.get("amount").getAsInt(), player.inventoryMenu.getCraftSlots());
-            } else if (type.equals("economy")) {
-                if (Loot_n_things.economy != null) {
-                    double amount = cost.get("amount").getAsDouble();
-                    long longAmount = (long) (Config.COMMON.hasDecimals.get() ? amount * 100 : amount);
-                    Loot_n_things.economy.withdraw((ServerPlayer) player, longAmount);
+            switch (type) {
+                case "xp" -> player.giveExperienceLevels(-cost.get("amount").getAsInt());
+                case "item" -> {
+                    Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(cost.get("id").getAsString()));
+                    player.getInventory().clearOrCountMatchingItems(p -> p.getItem() == item, cost.get("amount").getAsInt(), player.inventoryMenu.getCraftSlots());
+                }
+                case "economy" -> {
+                    if (Loot_n_things.economy != null) {
+                        double amount = cost.get("amount").getAsDouble();
+                        long longAmount = (long) (Config.COMMON.hasDecimals.get() ? amount * 100 : amount);
+                        Loot_n_things.economy.withdraw((ServerPlayer) player, longAmount);
+                    }
                 }
             }
         }
@@ -209,7 +215,7 @@ public class LootLibrary {
         if (isPitySpin) {
             weightField = "pity_weight";
             final String finalWeightField = weightField;
-            rollPool = pool.stream().filter(e -> e.has(finalWeightField)).collect(Collectors.toList());
+            rollPool = pool.stream().filter(e -> e.has(finalWeightField)).toList();
             if (rollPool.isEmpty()) {
                 rollPool = pool; // Fallback
                 weightField = "weight";
@@ -238,12 +244,12 @@ public class LootLibrary {
             boolean useDeck = json.has("deck") && json.get("deck").getAsBoolean();
             if (useDeck) {
                 List<Integer> deck = GLOBAL_DECKS.computeIfAbsent(tier, k -> 
-                    new ArrayList<>(IntStream.range(0, pool.size()).boxed().collect(Collectors.toList()))
+                    new ArrayList<>(IntStream.range(0, pool.size()).boxed().toList())
                 );
                 
                 if (deck.size() < spins) {
                     deck.clear();
-                    deck.addAll(IntStream.range(0, pool.size()).boxed().collect(Collectors.toList()));
+                    deck.addAll(IntStream.range(0, pool.size()).boxed().toList());
                     if (json.has("broadcast") && json.getAsJsonObject("broadcast").has("shuffle")) {
                         String shuffleMsg = json.getAsJsonObject("broadcast").get("shuffle").getAsString();
                         level.getServer().getPlayerList().broadcastSystemMessage(Component.literal(LootResolver.applyPlaceholders(shuffleMsg, null, json, null, null, tier)), false);
@@ -340,7 +346,7 @@ public class LootLibrary {
                         super.clicked(slotId, button, clickType, playerEntity);
                     }
                     @Override
-                    public boolean stillValid(Player p) { return true; }
+                    public boolean stillValid(Player p_40220_) { return true; }
                 },
                 Component.literal(LootResolver.applyPlaceholders(title, player, json, null, null, tier)));
 
@@ -358,8 +364,93 @@ public class LootLibrary {
     }
 
     private static ItemStack createPreviewIcon(JsonObject entry, int totalWeight, @Nullable JsonObject rootJson) {
-        // ... (rest of the method is unchanged)
-        return null;
+        ItemStack stack = LootSession.createIcon(entry, rootJson, null);
+        
+        int weight = entry.get("weight").getAsInt();
+        double percent = (double) weight / totalWeight * 100.0;
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.literal(String.format("§7Chance: §6%.2f%%", percent)));
+        
+        if (entry.has("count")) {
+            JsonElement ce = entry.get("count");
+            if (ce.isJsonObject()) {
+                JsonObject range = ce.getAsJsonObject();
+                List<Integer> keys = range.keySet().stream().map(Integer::parseInt).sorted().toList();
+                if (!keys.isEmpty()) lore.add(Component.literal("§7Amount: §e" + keys.getFirst() + " - " + keys.getLast()));
+            } else if (ce.isJsonPrimitive() && ce.getAsJsonPrimitive().isString()) {
+                String varName = ce.getAsString().replace("<", "").replace(">", "");
+                if (rootJson != null && rootJson.has("vars") && rootJson.getAsJsonObject("vars").has(varName)) {
+                    JsonElement varData = rootJson.getAsJsonObject("vars").get(varName);
+                    if (varData.isJsonObject() && varData.getAsJsonObject().has("min") && varData.getAsJsonObject().has("max")) {
+                        lore.add(Component.literal("§7Amount: §e" + varData.getAsJsonObject().get("min").getAsInt() + " - " + varData.getAsJsonObject().get("max").getAsInt()));
+                    } else if (varData.isJsonArray()) {
+                        List<String> amounts = new ArrayList<>();
+                        for (JsonElement e : varData.getAsJsonArray()) {
+                            if (e.isJsonObject() && e.getAsJsonObject().has("value")) {
+                                amounts.add(e.getAsJsonObject().get("value").getAsString());
+                            }
+                        }
+                        lore.add(Component.literal("§7Amount: §e" + String.join(", ", amounts)));
+                    }
+                } else {
+                    lore.add(Component.literal("§7Amount: §e" + ce.getAsString()));
+                }
+            } else {
+                lore.add(Component.literal("§7Amount: §e" + ce.getAsInt()));
+            }
+        }
+        
+        String type = entry.get("type").getAsString();
+        String textToCheck = "";
+        if (type.equals("item")) textToCheck = entry.get("id").getAsString();
+        else if (type.equals("command")) textToCheck = entry.get("command").getAsString();
+        
+        if (type.equals("multi") && entry.has("rewards")) {
+            lore.add(Component.literal("§bContains:"));
+            for (JsonElement subElement : entry.getAsJsonArray("rewards")) {
+                JsonObject subEntry = subElement.getAsJsonObject();
+                long subCount = subEntry.has("count") ? subEntry.get("count").getAsLong() : 1;
+                String summary = LootResolver.getRewardSummaryName(subEntry, subCount, rootJson, null);
+                lore.add(Component.literal(LootResolver.applyPlaceholders("  §7- " + summary, null, rootJson, subEntry, null, null)));
+            }
+        }
+        
+        if (rootJson != null && rootJson.has("vars")) {
+            Matcher m = Pattern.compile("<(\\w+)>").matcher(textToCheck);
+            Set<String> foundVars = new HashSet<>();
+            while (m.find()) {
+                foundVars.add(m.group(1));
+            }
+            
+            JsonObject vars = rootJson.getAsJsonObject("vars");
+            for (String varName : foundVars) {
+                if (vars.has(varName)) {
+                    JsonElement varData = vars.get(varName);
+                    List<String> options = new ArrayList<>();
+                    
+                    if (varData.isJsonArray()) {
+                        for (JsonElement e : varData.getAsJsonArray()) {
+                            if (e.isJsonObject() && e.getAsJsonObject().has("value")) {
+                                options.add(e.getAsJsonObject().get("value").getAsString());
+                            }
+                        }
+                    } else if (varData.isJsonObject() && varData.getAsJsonObject().has("value")) {
+                        options.add(varData.getAsJsonObject().get("value").getAsString());
+                    }
+                    
+                    if (!options.isEmpty()) {
+                        String optionsStr = String.join(", ", options);
+                        if (optionsStr.length() > 40) {
+                            optionsStr = optionsStr.substring(0, 37) + "...";
+                        }
+                        lore.add(Component.literal("§bVar <" + varName + ">: §f" + optionsStr));
+                    }
+                }
+            }
+        }
+        
+        stack.set(DataComponents.LORE, new ItemLore(lore));
+        return stack;
     }
 
     private static MenuType<ChestMenu> getMenuType(int rows) {
@@ -377,7 +468,10 @@ public class LootLibrary {
                 totalWeight += e.get(weightField).getAsInt();
             }
         }
-        if (totalWeight <= 0) return pool.getFirst();
+        if (totalWeight <= 0) {
+            if (pool.isEmpty()) return new JsonObject(); // Should not happen
+            return pool.getFirst();
+        }
         int roll = new Random().nextInt(totalWeight);
         int current = 0;
         for (JsonObject entry : pool) {

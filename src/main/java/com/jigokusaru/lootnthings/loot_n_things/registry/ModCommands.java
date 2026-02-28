@@ -191,7 +191,11 @@ public class ModCommands {
                                 .executes(context -> {
                                     Player player = context.getSource().getPlayerOrException();
                                     String tierName = StringArgumentType.getString(context, "tier");
-                                    String tierPath = tierName.startsWith("chests/") || tierName.startsWith("bags/") ? tierName : "chests/" + tierName;
+                                    // Reconstruct the full path for lookup
+                                    String tierPath = LootConfigManager.getAvailableTiers().stream()
+                                            .filter(t -> t.endsWith(tierName))
+                                            .findFirst()
+                                            .orElse(tierName);
                                     
                                     JsonObject json = LootLibrary.getLootFile(tierPath);
                                     if (json == null || !json.has("pity_after")) {
@@ -200,7 +204,7 @@ public class ModCommands {
                                     }
                                     
                                     int pityAfter = json.get("pity_after").getAsInt();
-                                    CompoundTag pityData = player.getPersistentData().getCompound("lootnthings_pity");
+                                    CompoundTag pityData = player.getPersistentData().getCompound("lnt_pity");
                                     int currentPity = pityData.getInt(tierPath);
                                     
                                     player.sendSystemMessage(Component.literal("§ePity for §6" + tierName + "§e: §a" + currentPity + " §7/ §c" + pityAfter));

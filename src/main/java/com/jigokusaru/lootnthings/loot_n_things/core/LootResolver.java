@@ -17,15 +17,11 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * A utility class for resolving placeholders and variables in strings from loot table JSONs.
- */
 public class LootResolver {
     private static final Random RANDOM = new Random();
     private static final Map<String, String> COLOR_MAP = new LinkedHashMap<>();
 
     static {
-        // Pre-populate a map of simple color/formatting codes for easy use in JSONs.
         COLOR_MAP.put("[black]", "§0"); COLOR_MAP.put("[dark_blue]", "§1");
         COLOR_MAP.put("[dark_green]", "§2"); COLOR_MAP.put("[dark_aqua]", "§3");
         COLOR_MAP.put("[dark_red]", "§4"); COLOR_MAP.put("[dark_purple]", "§5");
@@ -39,30 +35,14 @@ public class LootResolver {
         COLOR_MAP.put("[italic]", "§o"); COLOR_MAP.put("[reset]", "§r");
     }
 
-    public static String applyPlaceholders(String text, @Nullable Player player, @Nullable JsonObject rootJson) {
-        return applyPlaceholders(text, player, rootJson, null, null, null);
-    }
-
-    /**
-     * The main method for applying all placeholders to a given string.
-     * @param text The input string with placeholders.
-     * @param player The player context, for player-specific placeholders like [player] or [xp_level].
-     * @param rootJson The root JSON object of the loot table, for accessing global 'vars'.
-     * @param entryJson The specific loot entry being processed, for accessing local 'vars'.
-     * @param resolvedVars A pre-resolved map of variables. If provided, this is used instead of re-rolling variables.
-     * @param tierName The clean name of the loot tier, for the [tier] placeholder.
-     * @return The string with all placeholders replaced.
-     */
     public static String applyPlaceholders(String text, @Nullable Player player, @Nullable JsonObject rootJson, @Nullable JsonObject entryJson, @Nullable Map<String, String> resolvedVars, @Nullable String tierName) {
         String p = text;
 
-        // Apply variables first, using pre-resolved ones if available.
         if (resolvedVars != null) {
             for (Map.Entry<String, String> entry : resolvedVars.entrySet()) {
                 p = p.replace("<" + entry.getKey() + ">", entry.getValue());
             }
         } else {
-            // If no pre-resolved vars, roll them now. Local vars take precedence over global.
             if (entryJson != null && entryJson.has("vars")) {
                 p = applyVars(p, entryJson.getAsJsonObject("vars"));
             }
@@ -71,7 +51,6 @@ public class LootResolver {
             }
         }
 
-        // Apply player-specific placeholders
         if (player != null) {
             p = p.replace("[player]", player.getScoreboardName())
                     .replace("[x]", String.valueOf(player.getBlockX()))
@@ -79,7 +58,6 @@ public class LootResolver {
                     .replace("[z]", String.valueOf(player.getBlockZ()))
                     .replace("[xp_level]", String.valueOf(player.experienceLevel));
             
-            // Handle [score.objective_name] placeholders
             Matcher scoreMatcher = Pattern.compile("\\[score\\.(\\w+)\\]").matcher(p);
             if (scoreMatcher.find()) {
                 StringBuilder scoreSb = new StringBuilder();
@@ -99,12 +77,10 @@ public class LootResolver {
             }
         }
         
-        // Apply the [tier] placeholder
         if (tierName != null) {
             p = p.replace("[tier]", tierName.replace("chests/", "").replace("bags/", ""));
         }
 
-        // Apply simple math placeholders like [10+5]
         Matcher mathMatcher = Pattern.compile("\\[([0-9]+(?:\\.[0-9]+)?)\\s*([+\\-*/])\\s*([0-9]+(?:\\.[0-9]+)?)\\]").matcher(p);
         if (mathMatcher.find()) {
             StringBuilder mathSb = new StringBuilder();
@@ -117,24 +93,22 @@ public class LootResolver {
                         case "+" -> n1 + n2;
                         case "-" -> n1 - n2;
                         case "*" -> n1 * n2;
-                        case "/" -> n1 / n2;
+                        case "/" -> n2 != 0 ? n1 / n2 : 0;
                         default -> 0;
                     };
                     mathMatcher.appendReplacement(mathSb, String.valueOf(result));
                 } catch (Exception e) {
-                    // Ignore math parse errors, leaving the original text.
+                    // Ignore
                 }
             } while (mathMatcher.find());
             mathMatcher.appendTail(mathSb);
-p = mathSb.toString();
+            p = mathSb.toString();
         }
 
-        // Apply simple color codes like [gold]
         for (Map.Entry<String, String> en : COLOR_MAP.entrySet()) {
             p = p.replace(en.getKey(), en.getValue());
         }
 
-        // Apply hex color codes like [#FFA500]
         Matcher m = Pattern.compile("\\[#([A-Fa-f0-9]{6})]").matcher(p);
         if (m.find()) {
             StringBuilder sb = new StringBuilder();
@@ -152,9 +126,6 @@ p = mathSb.toString();
         return p;
     }
 
-    /**
-     * Resolves all variables for a given loot entry, creating a map of variable names to their rolled values.
-     */
     public static Map<String, String> resolveVariables(@Nullable JsonObject entry, @Nullable JsonObject rootJson) {
         Map<String, String> resolved = new HashMap<>();
         if (entry != null && entry.has("vars")) {
@@ -172,9 +143,6 @@ p = mathSb.toString();
         return resolved;
     }
 
-    /**
-     * Applies variables to a string on-the-fly. Used when pre-resolved variables are not available.
-     */
     private static String applyVars(String text, JsonObject vars) {
         String p = text;
         for (Map.Entry<String, JsonElement> entry : vars.entrySet()) {
@@ -187,9 +155,6 @@ p = mathSb.toString();
         return p;
     }
 
-    /**
-     * Rolls a single variable, which can be a simple value, a min/max range, or a weighted list of options.
-     */
     private static String rollVariableValue(JsonElement varElement) {
         if (varElement.isJsonPrimitive()) return varElement.getAsString();
         if (varElement.isJsonObject()) {
@@ -225,9 +190,6 @@ p = mathSb.toString();
         return "";
     }
 
-    /**
-     * Rolls a value from a weighted range object (e.g., {"1": 50, "2": 30, "3": 20}).
-     */
     public static int rollWeightedRange(JsonObject range) {
         int tw = 0;
         for (Map.Entry<String, JsonElement> en : range.entrySet()) tw += en.getValue().getAsInt();
@@ -241,30 +203,28 @@ p = mathSb.toString();
         return 1;
     }
 
-    /**
-     * Gets the display name for a reward entry, used in chat messages and previews.
-     */
     public static String getRewardSummaryName(JsonObject entry, long count, @Nullable JsonObject rootJson, @Nullable Map<String, String> vars) {
         String type = entry.get("type").getAsString();
         String name;
-        if (type.equals("item")) {
-            String id = entry.get("id").getAsString();
-            id = applyPlaceholders(id, null, rootJson, entry, vars, null);
-            name = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id)).getDescription().getString();
-        } else if (type.equals("nothing")) {
-            name = entry.has("message") ? entry.get("message").getAsString() : "Nothing";
-        } else if (type.equals("economy")) {
-            if (Loot_n_things.economy != null) {
-                long amount = count;
-                if (Config.COMMON.hasDecimals.get()) {
-                    amount = count * 100;
-                }
-                return Loot_n_things.economy.getCurrencyName(amount);
-            } else {
-                return count + " (Economy Mod Not Found)";
+        switch (type) {
+            case "item" -> {
+                String id = entry.get("id").getAsString();
+                id = applyPlaceholders(id, null, rootJson, entry, vars, null);
+                name = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id)).getDescription().getString();
             }
-        } else {
-            name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
+            case "nothing" -> name = entry.has("message") ? entry.get("message").getAsString() : "Nothing";
+            case "economy" -> {
+                if (Loot_n_things.economy != null) {
+                    long amount = count;
+                    if (Config.COMMON.hasDecimals.get()) {
+                        amount = count * 100;
+                    }
+                    return Loot_n_things.economy.getCurrencyName(amount);
+                } else {
+                    return count + " (Economy Mod Not Found)";
+                }
+            }
+            default -> name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
         }
         return (int)count + " " + applyPlaceholders(name, null, rootJson, entry, vars, null);
     }
