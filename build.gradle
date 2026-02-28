@@ -63,10 +63,7 @@ neoForge {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 dependencies {
-    // No external dependencies are currently required for the mod to function.
-    // If you add native support for an economy mod, its dependency would go here.
-    // Example:
-    // implementation "curse.maven:ftb-essentials-404149:5242098"
+
 }
 
 // Process metadata from gradle.properties into the mods.toml file

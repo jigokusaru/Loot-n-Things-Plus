@@ -1,6 +1,7 @@
 package com.jigokusaru.lootnthings.loot_n_things.registry;
 
 import com.google.gson.JsonObject;
+import com.jigokusaru.lootnthings.loot_n_things.Loot_n_things;
 import com.jigokusaru.lootnthings.loot_n_things.config.LootConfigManager;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
@@ -14,8 +15,14 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.DoubleTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Display.TextDisplay;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -25,19 +32,16 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
-/**
- * Registers all server commands for the mod.
- */
+import java.util.UUID;
+
 public class ModCommands {
 
-    // Suggestion provider for all available loot tiers (chests and bags).
     private static final SuggestionProvider<CommandSourceStack> TIER_SUGGESTIONS = (context, builder) ->
             SharedSuggestionProvider.suggest(
                     LootConfigManager.getAvailableTiers().stream()
                             .map(s -> s.replace("chests/", "").replace("bags/", "")),
                     builder);
 
-    // Suggestion provider for only those tiers that have a pity system enabled.
     private static final SuggestionProvider<CommandSourceStack> PITY_TIER_SUGGESTIONS = (context, builder) ->
             SharedSuggestionProvider.suggest(
                     LootConfigManager.getAvailableTiers().stream()
@@ -50,8 +54,6 @@ public class ModCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("lnt")
-                // Command: /lnt set <tier>
-                // Sets the loot table of the block the player is looking at.
                 .then(Commands.literal("set")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
@@ -68,27 +70,13 @@ public class ModCommands {
                                     BlockPos pos = hit.getBlockPos();
                                     BlockEntity be = player.level().getBlockEntity(pos);
 
-                                    if (be != null) {
+                                    if (be != null && player.level() instanceof ServerLevel level) {
                                         String path = tier;
                                         if (!path.startsWith("chests/") && !path.startsWith("bags/")) {
                                             path = "chests/" + tier;
                                         }
                                         
-                                        CompoundTag data = be.getPersistentData();
-                                        data.putString("lnt_tier", path);
-                                        
-                                        JsonObject json = LootLibrary.getLootFile(path);
-                                        if (json != null && json.has("display_name")) {
-                                            String displayName = json.get("display_name").getAsString();
-                                            Component newName = Component.literal(LootResolver.applyPlaceholders(displayName, player, json, null, null, path));
-                                            
-                                            CompoundTag tag = be.saveWithFullMetadata(context.getSource().registryAccess());
-                                            tag.putString("CustomName", Component.Serializer.toJson(newName, context.getSource().registryAccess()));
-                                            be.loadWithComponents(tag, context.getSource().registryAccess());
-                                            player.level().sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
-                                        }
-                                        
-                                        be.setChanged();
+                                        createOrUpdateDisplay(level, pos, be, path);
                                         
                                         final String finalPath = path;
                                         context.getSource().sendSuccess(() -> Component.literal("§aLoot block set to: §6" + finalPath), true);
@@ -98,8 +86,6 @@ public class ModCommands {
                                     return 0;
                                 })))
 
-                // Command: /lnt key <tier> [target]
-                // Gives a key for the specified loot tier.
                 .then(Commands.literal("key")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
@@ -107,8 +93,6 @@ public class ModCommands {
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), EntityArgument.getPlayer(context, "target"))))))
 
-                // Command: /lnt remove
-                // Removes the loot table from the block the player is looking at.
                 .then(Commands.literal("remove")
                         .requires(source -> source.hasPermission(2))
                         .executes(context -> {
@@ -123,26 +107,23 @@ public class ModCommands {
                             BlockPos pos = hit.getBlockPos();
                             BlockEntity be = player.level().getBlockEntity(pos);
 
-                            if (be != null) {
-                                boolean changed = false;
-                                
+                            if (be != null && player.level() instanceof ServerLevel level) {
                                 CompoundTag data = be.getPersistentData();
                                 if (data.contains("lnt_tier")) {
                                     data.remove("lnt_tier");
-                                    changed = true;
-                                }
-                                
-                                CompoundTag tag = be.saveWithFullMetadata(context.getSource().registryAccess());
-                                if (tag.contains("CustomName")) {
-                                    tag.remove("CustomName");
-                                    be.loadWithComponents(tag, context.getSource().registryAccess());
-                                    player.level().sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
-                                    changed = true;
-                                }
-
-                                if (changed) {
+                                    
+                                    if (data.hasUUID("lnt_display_uuid")) {
+                                        UUID oldUuid = data.getUUID("lnt_display_uuid");
+                                        Entity oldDisplay = level.getEntity(oldUuid);
+                                        if (oldDisplay != null) {
+                                            oldDisplay.kill();
+                                        }
+                                        data.remove("lnt_display_uuid");
+                                    }
+                                    
                                     be.setChanged();
-                                    context.getSource().sendSuccess(() -> Component.literal("§aLoot table removed and name reset."), true);
+                                    level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
+                                    context.getSource().sendSuccess(() -> Component.literal("§aLoot table removed."), true);
                                     return 1;
                                 } else {
                                     context.getSource().sendFailure(Component.literal("§cNo Loot n' Things data found on this block."));
@@ -153,8 +134,6 @@ public class ModCommands {
                             return 0;
                         }))
 
-                // Command: /lnt reload
-                // Reloads all loot table JSON files from the config folder.
                 .then(Commands.literal("reload")
                         .requires(source -> source.hasPermission(2))
                         .executes(context -> {
@@ -163,8 +142,6 @@ public class ModCommands {
                             return success ? 1 : 0;
                         }))
 
-                // Command: /lnt givebag <target> <tier>
-                // Gives a loot bag to the specified player.
                 .then(Commands.literal("givebag")
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.argument("target", EntityArgument.player())
@@ -184,14 +161,11 @@ public class ModCommands {
                                             return 1;
                                         }))))
                 
-                // Command: /lnt pity <tier>
-                // Allows players to check their pity counter for a specific tier.
                 .then(Commands.literal("pity")
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(PITY_TIER_SUGGESTIONS)
                                 .executes(context -> {
                                     Player player = context.getSource().getPlayerOrException();
                                     String tierName = StringArgumentType.getString(context, "tier");
-                                    // Reconstruct the full path for lookup
                                     String tierPath = LootConfigManager.getAvailableTiers().stream()
                                             .filter(t -> t.endsWith(tierName))
                                             .findFirst()
@@ -211,6 +185,49 @@ public class ModCommands {
                                     return 1;
                                 })))
         );
+    }
+
+    public static void createOrUpdateDisplay(ServerLevel level, BlockPos pos, BlockEntity be, String tierPath) {
+        Loot_n_things.LOGGER.info("createOrUpdateDisplay called for tier '{}' at {}", tierPath, pos);
+        CompoundTag data = be.getPersistentData();
+        
+        if (data.hasUUID("lnt_display_uuid")) {
+            Entity oldDisplay = level.getEntity(data.getUUID("lnt_display_uuid"));
+            if (oldDisplay != null) {
+                oldDisplay.kill();
+            }
+        }
+
+        data.putString("lnt_tier", tierPath);
+        
+        JsonObject json = LootLibrary.getLootFile(tierPath);
+        if (json != null && json.has("display_name")) {
+            String displayName = json.get("display_name").getAsString();
+            Component newName = Component.literal(LootResolver.applyPlaceholders(displayName, null, json, null, null, tierPath));
+            
+            TextDisplay textDisplay = EntityType.TEXT_DISPLAY.create(level);
+            if (textDisplay != null) {
+                CompoundTag displayData = new CompoundTag();
+                ListTag posList = new ListTag();
+                posList.add(DoubleTag.valueOf(pos.getX() + 0.5));
+                posList.add(DoubleTag.valueOf(pos.getY() + 1.1));
+                posList.add(DoubleTag.valueOf(pos.getZ() + 0.5));
+                
+                displayData.put("Pos", posList);
+                displayData.putString("text", Component.Serializer.toJson(newName, level.registryAccess()));
+                displayData.putString("billboard", "center");
+                displayData.putInt("background", 0xFF000000); // Fully opaque black
+                displayData.putBoolean("see_through", false);
+                textDisplay.load(displayData);
+                
+                level.addFreshEntity(textDisplay);
+                data.putUUID("lnt_display_uuid", textDisplay.getUUID());
+                Loot_n_things.LOGGER.info("Successfully created new display entity with UUID {}", textDisplay.getUUID());
+            }
+        }
+        
+        be.setChanged();
+        level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
     }
 
     private static int giveKey(CommandSourceStack source, String tier, Player target) {

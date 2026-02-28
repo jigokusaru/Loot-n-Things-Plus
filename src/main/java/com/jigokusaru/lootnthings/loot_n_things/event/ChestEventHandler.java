@@ -15,9 +15,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
-/**
- * Handles all events related to loot chests placed in the world.
- */
 public class ChestEventHandler {
 
     private String getLootTier(BlockEntity be) {
@@ -28,8 +25,8 @@ public class ChestEventHandler {
     }
 
     /**
-     * Handles players left-clicking a loot chest.
-     * This opens the loot preview GUI.
+     * Handles players left-clicking (punching) a loot chest.
+     * This cancels the block breaking and opens the loot preview GUI.
      */
     @SubscribeEvent
     public void onChestPunch(PlayerInteractEvent.LeftClickBlock event) {
@@ -40,7 +37,10 @@ public class ChestEventHandler {
         String tier = getLootTier(be);
         
         if (tier != null && !tier.equals("none")) {
+            // Cancel the event to prevent the block from showing breaking progress.
             event.setCanceled(true);
+            
+            // On the server, open the preview GUI for the player.
             if (!level.isClientSide) {
                 LootLibrary.openLootPreview(tier, event.getEntity());
             }
@@ -83,24 +83,19 @@ public class ChestEventHandler {
     }
 
     /**
-     * This code ensures that a chest cannot be broken while it has a loot table connected to it.
-     * Prevents players from breaking loot chests in survival mode.
+     * This is the final safety net to ensure a loot chest can never be broken.
+     * It cancels the event regardless of gamemode or what caused the break.
      */
     @SubscribeEvent
     public void onBlockBreak(BlockEvent.BreakEvent event) {
         BlockEntity be = event.getLevel().getBlockEntity(event.getPos());
         String tier = getLootTier(be);
         if (tier != null && !tier.equals("none")) {
-            if (!event.getPlayer().isCreative()) {
-                event.setCanceled(true);
-                event.getPlayer().displayClientMessage(Component.literal("§cYou cannot break Loot n' Things chests!"), true);
-            }
+            event.setCanceled(true);
+            event.getPlayer().displayClientMessage(Component.literal("§cThis is a loot chest and cannot be broken. Use /lnt remove."), true);
         }
     }
 
-    /**
-     * Prevents players from placing loot bags or keys if they are block items.
-     */
     @SubscribeEvent
     public void onKeyPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof Player player) {
