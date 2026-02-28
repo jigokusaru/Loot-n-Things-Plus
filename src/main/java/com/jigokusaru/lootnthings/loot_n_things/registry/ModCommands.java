@@ -37,10 +37,18 @@ import java.util.UUID;
 
 public class ModCommands {
 
-    private static final SuggestionProvider<CommandSourceStack> TIER_SUGGESTIONS = (context, builder) ->
+    private static final SuggestionProvider<CommandSourceStack> CHEST_TIER_SUGGESTIONS = (context, builder) ->
             SharedSuggestionProvider.suggest(
                     LootConfigManager.getAvailableTiers().stream()
-                            .map(s -> s.replace("chests/", "").replace("bags/", "")),
+                            .filter(s -> s.startsWith("chests/"))
+                            .map(s -> s.replace("chests/", "")),
+                    builder);
+
+    private static final SuggestionProvider<CommandSourceStack> BAG_TIER_SUGGESTIONS = (context, builder) ->
+            SharedSuggestionProvider.suggest(
+                    LootConfigManager.getAvailableTiers().stream()
+                            .filter(s -> s.startsWith("bags/"))
+                            .map(s -> s.replace("bags/", "")),
                     builder);
 
     private static final SuggestionProvider<CommandSourceStack> PITY_TIER_SUGGESTIONS = (context, builder) ->
@@ -57,7 +65,11 @@ public class ModCommands {
         dispatcher.register(Commands.literal("lnt")
                 .then(Commands.literal("set")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.set"))
-                        .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
+                        .executes(context -> {
+                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt set <tier>"));
+                            return 0;
+                        })
+                        .then(Commands.argument("tier", StringArgumentType.string()).suggests(CHEST_TIER_SUGGESTIONS)
                                 .executes(context -> {
                                     Player player = context.getSource().getPlayerOrException();
                                     String tier = StringArgumentType.getString(context, "tier");
@@ -72,11 +84,7 @@ public class ModCommands {
                                     BlockEntity be = player.level().getBlockEntity(pos);
 
                                     if (be != null && player.level() instanceof ServerLevel level) {
-                                        String path = tier;
-                                        if (!path.startsWith("chests/") && !path.startsWith("bags/")) {
-                                            path = "chests/" + tier;
-                                        }
-                                        
+                                        String path = "chests/" + tier;
                                         createOrUpdateDisplay(level, pos, be, path);
                                         
                                         final String finalPath = path;
@@ -89,7 +97,11 @@ public class ModCommands {
 
                 .then(Commands.literal("key")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.key"))
-                        .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
+                        .executes(context -> {
+                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt key <tier> [target]"));
+                            return 0;
+                        })
+                        .then(Commands.argument("tier", StringArgumentType.string()).suggests(CHEST_TIER_SUGGESTIONS)
                                 .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), context.getSource().getPlayerOrException()))
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), EntityArgument.getPlayer(context, "target"))))))
@@ -145,8 +157,12 @@ public class ModCommands {
 
                 .then(Commands.literal("givebag")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.givebag"))
+                        .executes(context -> {
+                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt givebag <target> <tier>"));
+                            return 0;
+                        })
                         .then(Commands.argument("target", EntityArgument.player())
-                                .then(Commands.argument("tier", StringArgumentType.string()).suggests(TIER_SUGGESTIONS)
+                                .then(Commands.argument("tier", StringArgumentType.string()).suggests(BAG_TIER_SUGGESTIONS)
                                         .executes(context -> {
                                             Player target = EntityArgument.getPlayer(context, "target");
                                             String tier = StringArgumentType.getString(context, "tier");
@@ -164,6 +180,10 @@ public class ModCommands {
                 
                 .then(Commands.literal("pity")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.pity"))
+                        .executes(context -> {
+                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt pity <tier>"));
+                            return 0;
+                        })
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(PITY_TIER_SUGGESTIONS)
                                 .executes(context -> {
                                     Player player = context.getSource().getPlayerOrException();
@@ -233,10 +253,7 @@ public class ModCommands {
     }
 
     private static int giveKey(CommandSourceStack source, String tier, Player target) {
-        String path = tier;
-        if (!path.startsWith("chests/") && !path.startsWith("bags/")) {
-            path = "chests/" + tier;
-        }
+        String path = "chests/" + tier;
         
         final String finalPath = path;
         JsonObject json = LootLibrary.getLootFile(finalPath);
