@@ -1,0 +1,40 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+build/
+gradle/
+gradlew
+gradlew.bat
+!gradle/wrapper/gradle-wrapper.jar
+
+# NeoForge MDK
+run/
+runs/
+user_jvm_args.txt
+production/
+
+# Logs and Reports
+logs/
+crash-reports/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VSCode
+.vscode/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.jar
+*.zip
+*.tar.gz
+out/

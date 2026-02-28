@@ -1,0 +1,34 @@
+{
+  "display_name": "[#C0C0C0]Advanced Variable Bag",
+  "icon": "minecraft:ender_chest",
+  "spins": 2,
+  "vars": {
+    "random_amount": {
+      "min": 100,
+      "max": 500
+    }
+  },
+  "loot": [
+    {
+      "type": "command",
+      "display_name": "Bonus XP",
+      "command": "xp add [player] [<xp_level>*10] points",
+      "weight": 10,
+      "comment": "Gives the player XP equal to their current level times 10."
+    },
+    {
+      "type": "command",
+      "display_name": "Mob Kills Reward",
+      "command": "eco give [player] [score.mob_kills]",
+      "weight": 10,
+      "comment": "Gives the player money equal to their 'mob_kills' scoreboard objective."
+    },
+    {
+      "type": "economy",
+      "display_name": "Random Amount of Money",
+      "count": "<random_amount>",
+      "weight": 5,
+      "comment": "Gives a random amount of money between 100 and 500."
+    }
+  ]
+}

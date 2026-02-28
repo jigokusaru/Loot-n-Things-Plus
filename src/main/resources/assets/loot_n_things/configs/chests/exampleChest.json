@@ -1,0 +1,76 @@
+{
+  "parent": "chests/base_chest",
+  "display_name": "[#FFA500]The Ultimate Showcase Chest",
+  "spins": 5,
+  "pity_after": 5,
+  "pity_spins": 3,
+  "pity_unique": true,
+  "key_item": "minecraft:tripwire_hook",
+  "deck": true,
+  "unique_rolls": true,
+  "cooldown": 10,
+  "cost": {
+    "type": "xp",
+    "amount": 1
+  },
+  "sounds": {
+    "click": "minecraft:block.note_block.hat",
+    "win": "minecraft:entity.player.levelup"
+  },
+  "broadcast": {
+    "open": "[player] is opening The Ultimate Showcase Chest!",
+    "win": "[player] won a <display_name> from the [tier] chest!",
+    "shuffle": "The deck for the [tier] chest has been reshuffled!"
+  },
+  "loot": [
+    {
+      "type": "item",
+      "id": "minecraft:<color>_wool",
+      "display_name": "Random Wool",
+      "weight": 10,
+      "group": "wool",
+      "comment": "This item's color is chosen from the global 'color' var in base_chest.json"
+    },
+    {
+      "type": "economy",
+      "display_name": "500 Coins",
+      "count": 500,
+      "weight": 10,
+      "pity_weight": 5,
+      "comment": "This reward is safely ignored if no economy is configured."
+    },
+    {
+      "type": "command",
+      "display_name": "[aqua]Speed Boost (Level [<level>+1])",
+      "command": "effect give [player] minecraft:speed 60 <level>",
+      "model_id": 102,
+      "weight": 8,
+      "group": "speed_boost",
+      "vars": {
+        "level": [
+          {"value": "0", "weight": 25, "comment": "Gives Speed I"},
+          {"value": "1", "weight": 20, "comment": "Gives Speed II"},
+          {"value": "2", "weight": 15, "comment": "Gives Speed III"}
+        ]
+      },
+      "comment": "This command uses a local 'level' var and a math placeholder for display."
+    },
+    {
+      "type": "multi",
+      "display_name": "Starter Kit",
+      "weight": 5,
+      "rewards": [
+        {"type": "item", "id": "minecraft:stone_sword"},
+        {"type": "item", "id": "minecraft:stone_pickaxe"},
+        {"type": "item", "id": "minecraft:bread", "count": 16}
+      ]
+    },
+    {
+      "type": "loot_table",
+      "id": "bags/exampleBag",
+      "display_name": "A Bonus Bag!",
+      "weight": 1,
+      "pity_weight": 1
+    }
+  ]
+}

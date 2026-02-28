@@ -1,0 +1,41 @@
+{
+  "vars": {
+    "color": [
+      {"value": "red", "weight": 1},
+      {"value": "blue", "weight": 1},
+      {"value": "green", "weight": 1},
+      {"value": "yellow", "weight": 1}
+    ]
+  },
+  "loot": [
+    {
+      "type": "item",
+      "id": "minecraft:diamond",
+      "weight": 5
+    },
+    {
+      "type": "item",
+      "id": "minecraft:emerald",
+      "weight": 5
+    },
+    {
+      "type": "item",
+      "id": "minecraft:gold_ingot",
+      "count": 10,
+      "weight": 10
+    },
+    {
+      "type": "item",
+      "id": "minecraft:iron_ingot",
+      "count": 20,
+      "weight": 15
+    },
+    {
+      "type": "nothing",
+      "message": "[gray]Just some dust...",
+      "weight": 20,
+      "always": true,
+      "comment": "The 'always' tag means this won't be removed from a deck."
+    }
+  ]
+}
