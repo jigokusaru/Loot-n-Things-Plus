@@ -56,6 +56,7 @@ Here is a detailed breakdown of a loot table JSON file.
 {
   "parent": "chests/base_chest",
   "display_name": "[#FFA500]The Ultimate Showcase Chest",
+  "permission": "my.custom.permission",
   "spins": 5,
   "pity_after": 5,
   "pity_spins": 3,
@@ -100,7 +101,7 @@ Here is a detailed breakdown of a loot table JSON file.
 
 ### Root Fields
 
-- `parent` (Optional): Inherits all `loot` and `vars` from another file.
+- `permission` (Optional): A custom permission node for this specific loot tier.
 - `display_name` (Optional): The name shown in GUIs. Supports color codes.
 - `spins` (Optional, Default: 1): The number of rewards to grant per opening.
 - `pity_after` (Optional): The number of openings required to trigger a pity roll.
@@ -115,42 +116,47 @@ Here is a detailed breakdown of a loot table JSON file.
   - `amount`: The number of XP levels, items, or currency required.
   - `id` (Required for `item` type): The item ID of the cost.
 - `sounds` (Optional): Custom sounds for the spinner.
-  - `click`: Sound that plays during the animation.
-  - `win`: Sound that plays when the animation finishes.
 - `broadcast` (Optional): Configurable server-wide messages.
-  - `open`: Sent when a player opens the loot.
-  - `win`: Sent for each item won.
-  - `shuffle`: Sent when a global deck is reshuffled.
 - `vars` (Optional): A map of global variables for this loot table.
 
 ### Loot Entry Fields
 
-- `type`: The type of reward. Can be `item`, `command`, `economy`, `multi`, `loot_table`, or `nothing`.
-- `weight`: A number representing the chance of this item being picked in a normal roll. Higher is more common.
+- `type`: The type of reward.
+- `weight`: The chance of this item being picked in a normal roll.
 - `pity_weight` (Optional): The weight used during a pity roll.
-- `display_name` (Optional): A custom name for the reward, used in chat and broadcasts.
-- `count` (Optional, Default: 1): The amount of the item or currency. Can be a number, a range object (`{"1": 50, "5": 10}`), or a variable (`"<my_var>"`).
+- `display_name` (Optional): A custom name for the reward.
+- `count` (Optional, Default: 1): The amount of the item or currency.
 - `id` (Required for `item` and `loot_table`): The item ID or the path to another loot table file.
 - `command` (Required for `command`): The command to execute.
 - `rewards` (Required for `multi`): An array of sub-reward entries.
 - `group` (Optional): A name used by `unique_rolls` to group similar items.
 - `always` (Optional, Default: `false`): If `true`, this item will not be consumed from a `deck`.
 
-## Commands
+## Commands & Permissions
 
-### Admin Commands (Permission Level 2)
-- `/lnt set <tier>`: Sets the loot tier of the chest you are looking at.
-- `/lnt remove`: Removes the loot tier from the chest you are looking at.
-- `/lnt key <tier> [target]`: Gives a key for the specified tier to you or an optional target.
-- `/lnt givebag <target> <tier>`: Gives a loot bag to the specified player.
-- `/lnt reload`: Reloads all loot table JSONs from the config folder.
+This mod features a comprehensive permission system. If LuckPerms is installed, it will use the nodes below. If not, it will fall back to the default Minecraft operator levels (2 for admin, 0 for player).
 
-### Player Commands (Permission Level 0)
-- `/lnt pity <tier>`: Checks your current pity counter for a specific loot tier.
+### Admin Commands
+- `/lnt set <tier>` - `lootnthings.command.set`
+- `/lnt remove` - `lootnthings.command.remove`
+- `/lnt key <tier> [target]` - `lootnthings.command.key`
+- `/lnt givebag <target> <tier>` - `lootnthings.command.givebag`
+- `/lnt reload` - `lootnthings.command.reload`
+
+### Player Commands
+- `/lnt pity <tier>` - `lootnthings.command.pity`
+
+### Action Permissions
+These permissions control a player's ability to interact with loot chests and bags.
+
+- **Opening:**
+  - Default: `lootnthings.open.<type>.<tier_name>` (e.g., `lootnthings.open.chests.exampleChest`)
+  - Custom: If you define `"permission": "my.custom.node"` in your JSON, the required node becomes `my.custom.node.open`.
+- **Previewing:**
+  - Default: `lootnthings.preview.<type>.<tier_name>` (e.g., `lootnthings.preview.bags.exampleBag`)
+  - Custom: Uses the custom permission from the JSON: `my.custom.node.preview`.
 
 ## Placeholders
-
-You can use these placeholders in `display_name`, `command`, and `broadcast` messages.
 
 - `[player]`: The player's name.
 - `[x]`, `[y]`, `[z]`: The player's current block coordinates.
@@ -158,6 +164,6 @@ You can use these placeholders in `display_name`, `command`, and `broadcast` mes
 - `[score.objective_name]`: The player's score in the specified scoreboard objective.
 - `[tier]`: The clean name of the loot tier (e.g., `exampleChest`).
 - `<variable_name>`: A custom variable defined in a `vars` block.
-- `[<xp_level>*10]`: Simple math operations. Supports `+`, `-`, `*`, `/` and can be combined with other numeric placeholders.
+- `[<xp_level>*10]`: Simple math operations.
 
 Enjoy creating your unique loot experiences!

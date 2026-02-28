@@ -3,9 +3,9 @@ package com.jigokusaru.lootnthings.loot_n_things.util;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.Node;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.fml.ModList;
 
 public class PermissionManager {
@@ -18,32 +18,36 @@ public class PermissionManager {
             try {
                 luckPermsApi = LuckPermsProvider.get();
             } catch (IllegalStateException e) {
-                // This can happen if LuckPerms is present but not yet loaded.
-                // It should be available by the time commands are used.
+                // API not ready yet, will try again on first use.
             }
         }
     }
 
     public static boolean hasPermission(CommandSourceStack source, String permission) {
         if (source.getEntity() instanceof ServerPlayer player) {
-            if (LUCKPERMS_INSTALLED) {
-                if (luckPermsApi == null) {
-                    try {
-                        luckPermsApi = LuckPermsProvider.get();
-                    } catch (IllegalStateException e) {
-                        return source.hasPermission(2); // Fallback if API is still not ready
-                    }
-                }
-                User user = luckPermsApi.getUserManager().getUser(player.getUUID());
-                if (user != null) {
-                    return user.getCachedData().getPermissionData().checkPermission(permission).asBoolean();
-                }
-                return false; // Should not happen
-            } else {
-                // Fallback to default OP check if LuckPerms is not installed
-                return source.hasPermission(2);
-            }
+            return hasPermission(player, permission);
         }
-        return source.hasPermission(2); // True for console
+        // For console or non-player command sources, default to operator level 2.
+        return source.hasPermission(2);
+    }
+
+    public static boolean hasPermission(Player player, String permission) {
+        if (LUCKPERMS_INSTALLED) {
+            if (luckPermsApi == null) {
+                try {
+                    luckPermsApi = LuckPermsProvider.get();
+                } catch (IllegalStateException e) {
+                    return player.hasPermission(2); // Fallback if API is still not ready
+                }
+            }
+            User user = luckPermsApi.getUserManager().getUser(player.getUUID());
+            if (user != null) {
+                return user.getCachedData().getPermissionData().checkPermission(permission).asBoolean();
+            }
+            return false;
+        } else {
+            // Fallback to default OP check if LuckPerms is not installed
+            return player.hasPermission(2);
+        }
     }
 }

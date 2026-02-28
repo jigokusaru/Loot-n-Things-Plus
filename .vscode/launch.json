@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "runClient",
+            "request": "launch",
+            "mainClass": "net.neoforged.devlaunch.Main",
+            "projectName": "Loot-n-Things-Plus.main",
+            "args": "--launchTarget forgeclientdev",
+            "vmArgs": "-Dforge.logging.console.level=debug"
+        },
+        {
+            "type": "java",
+            "name": "runServer",
+            "request": "launch",
+            "mainClass": "net.neoforged.devlaunch.Main",
+            "projectName": "Loot-n-Things-Plus.main",
+            "args": "--launchTarget forgeserverdev --nogui",
+            "vmArgs": "-Dforge.logging.console.level=debug"
+        },
+        {
+            "type": "java",
+            "name": "runData",
+            "request": "launch",
+            "mainClass": "net.neoforged.devlaunch.Main",
+            "projectName": "Loot-n-Things-Plus.main",
+            "args": "--launchTarget datadev --mod loot_n_things --all --output src/generated/resources --existing src/main/resources",
+            "vmArgs": "-Dforge.logging.console.level=debug"
+        }
+    ]
+}

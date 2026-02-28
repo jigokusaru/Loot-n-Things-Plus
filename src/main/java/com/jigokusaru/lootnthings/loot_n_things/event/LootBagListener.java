@@ -3,6 +3,8 @@ package com.jigokusaru.lootnthings.loot_n_things.event;
 import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.registry.ModComponents;
+import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -10,16 +12,8 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
-/**
- * Handles all events related to loot bags (item-based loot).
- */
 public class LootBagListener {
 
-    /**
-     * Fired when a player right-clicks on a block.
-     * If the player is holding a loot bag, we deny the block interaction but allow the item interaction to proceed.
-     * This is the standard way to prevent placeable items from being placed.
-     */
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         ItemStack stack = event.getItemStack();
@@ -30,10 +24,6 @@ public class LootBagListener {
         }
     }
 
-    /**
-     * Fired when a player right-clicks with an item (either in the air or after a block interaction was passed).
-     * This is the primary handler for the bag's logic.
-     */
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         Player player = event.getEntity();
@@ -41,7 +31,6 @@ public class LootBagListener {
         String tierPath = stack.get(ModComponents.LNT_BAG_TIER.get());
 
         if (tierPath != null) {
-            // We are handling this interaction, so consume the event to prevent other actions.
             event.setCancellationResult(InteractionResult.SUCCESS);
 
             if (player.level() instanceof ServerLevel serverLevel) {
@@ -50,16 +39,25 @@ public class LootBagListener {
         }
     }
 
-    /**
-     * Centralized logic for handling a bag interaction.
-     * Checks for shift-clicking to determine whether to open the preview or the spinner.
-     */
     private static void handleBagInteraction(Player player, ItemStack stack, String tierPath, ServerLevel serverLevel) {
+        JsonObject json = LootLibrary.getLootFile(tierPath);
+        if (json == null) return;
+
         if (player.isShiftKeyDown()) {
-            LootLibrary.openLootPreview(tierPath, player);
+            String permission = json.has("permission") ? json.get("permission").getAsString() + ".preview" : "lootnthings.preview." + tierPath.replace("/", ".");
+            if (PermissionManager.hasPermission(player, permission)) {
+                LootLibrary.openLootPreview(tierPath, player);
+            } else {
+                player.displayClientMessage(Component.literal("§cYou do not have permission to preview this loot."), true);
+            }
         } else {
-            JsonObject json = LootLibrary.getLootFile(tierPath);
-            if (json != null && LootLibrary.canOpen(tierPath, player, json)) {
+            String permission = json.has("permission") ? json.get("permission").getAsString() + ".open" : "lootnthings.open." + tierPath.replace("/", ".");
+            if (!PermissionManager.hasPermission(player, permission)) {
+                player.displayClientMessage(Component.literal("§cYou do not have permission to open this."), true);
+                return;
+            }
+            
+            if (LootLibrary.canOpen(tierPath, player, json)) {
                 if (!player.getAbilities().instabuild) {
                     stack.shrink(1);
                 }

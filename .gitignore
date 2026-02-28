@@ -28,7 +28,7 @@ crash-reports/
 bin/
 
 # VSCode
-.vscode/
+# .vscode/
 
 # OS Files
 .DS_Store

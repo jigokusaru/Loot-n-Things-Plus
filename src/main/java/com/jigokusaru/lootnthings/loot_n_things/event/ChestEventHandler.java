@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
 import com.jigokusaru.lootnthings.loot_n_things.registry.ModComponents;
+import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -24,33 +25,27 @@ public class ChestEventHandler {
         return null;
     }
 
-    /**
-     * Handles players left-clicking (punching) a loot chest.
-     * This cancels the block breaking and opens the loot preview GUI.
-     */
     @SubscribeEvent
     public void onChestPunch(PlayerInteractEvent.LeftClickBlock event) {
         Level level = event.getLevel();
         BlockPos pos = event.getPos();
         BlockEntity be = level.getBlockEntity(pos);
-
         String tier = getLootTier(be);
         
         if (tier != null && !tier.equals("none")) {
-            // Cancel the event to prevent the block from showing breaking progress.
             event.setCanceled(true);
-            
-            // On the server, open the preview GUI for the player.
             if (!level.isClientSide) {
-                LootLibrary.openLootPreview(tier, event.getEntity());
+                JsonObject json = LootLibrary.getLootFile(tier);
+                String permission = (json != null && json.has("permission")) ? json.get("permission").getAsString() + ".preview" : "lootnthings.preview." + tier.replace("/", ".");
+                if (PermissionManager.hasPermission(event.getEntity(), permission)) {
+                    LootLibrary.openLootPreview(tier, event.getEntity());
+                } else {
+                    event.getEntity().displayClientMessage(Component.literal("§cYou do not have permission to preview this loot."), true);
+                }
             }
         }
     }
 
-    /**
-     * Handles players right-clicking a loot chest.
-     * This checks for keys, costs, and cooldowns before opening the spinner.
-     */
     @SubscribeEvent
     public void onChestInteract(PlayerInteractEvent.RightClickBlock event) {
         Level level = event.getLevel();
@@ -59,16 +54,23 @@ public class ChestEventHandler {
         BlockPos pos = event.getPos();
         BlockEntity be = level.getBlockEntity(pos);
         Player player = event.getEntity();
-
         String chestTier = getLootTier(be);
+
         if (chestTier != null && !chestTier.equals("none")) {
             event.setCanceled(true);
+            
+            JsonObject json = LootLibrary.getLootFile(chestTier);
+            String permission = (json != null && json.has("permission")) ? json.get("permission").getAsString() + ".open" : "lootnthings.open." + chestTier.replace("/", ".");
+            
+            if (!PermissionManager.hasPermission(player, permission)) {
+                player.displayClientMessage(Component.literal("§cYou do not have permission to open this."), true);
+                return;
+            }
 
             ItemStack heldItem = player.getMainHandItem();
             String keyTier = heldItem.get(ModComponents.LOOT_KEY.get());
 
             if (keyTier != null && keyTier.equals(chestTier)) {
-                JsonObject json = LootLibrary.getLootFile(chestTier);
                 if (json != null && LootLibrary.canOpen(chestTier, player, json)) {
                     if (!player.getAbilities().instabuild) {
                         heldItem.shrink(1);
@@ -82,10 +84,6 @@ public class ChestEventHandler {
         }
     }
 
-    /**
-     * This is the final safety net to ensure a loot chest can never be broken.
-     * It cancels the event regardless of gamemode or what caused the break.
-     */
     @SubscribeEvent
     public void onBlockBreak(BlockEvent.BreakEvent event) {
         BlockEntity be = event.getLevel().getBlockEntity(event.getPos());
