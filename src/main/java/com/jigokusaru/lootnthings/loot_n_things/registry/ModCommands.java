@@ -1,13 +1,14 @@
 package com.jigokusaru.lootnthings.loot_n_things.registry;
 
 import com.google.gson.JsonObject;
-import com.jigokusaru.lootnthings.loot_n_things.Loot_n_things;
 import com.jigokusaru.lootnthings.loot_n_things.config.LootConfigManager;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
+import com.jigokusaru.lootnthings.loot_n_things.util.NameplateManager;
 import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -16,14 +17,10 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.DoubleTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Display.TextDisplay;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -33,7 +30,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
-import java.util.UUID;
+import java.util.Collection;
 
 public class ModCommands {
 
@@ -85,7 +82,9 @@ public class ModCommands {
 
                                     if (be != null && player.level() instanceof ServerLevel level) {
                                         String path = "chests/" + tier;
-                                        createOrUpdateDisplay(level, pos, be, path);
+                                        be.getPersistentData().putString("lnt_tier", path);
+                                        NameplateManager.add(be);
+                                        NameplateManager.createOrUpdate(level, pos, be);
                                         
                                         final String finalPath = path;
                                         context.getSource().sendSuccess(() -> Component.literal("§aLoot block set to: §6" + finalPath), true);
@@ -98,13 +97,32 @@ public class ModCommands {
                 .then(Commands.literal("key")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.key"))
                         .executes(context -> {
-                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt key <tier> [target]"));
+                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt key <tier> [targets]"));
                             return 0;
                         })
                         .then(Commands.argument("tier", StringArgumentType.string()).suggests(CHEST_TIER_SUGGESTIONS)
-                                .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), context.getSource().getPlayerOrException()))
-                                .then(Commands.argument("target", EntityArgument.player())
-                                        .executes(context -> giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), EntityArgument.getPlayer(context, "target"))))))
+                                .executes(context -> {
+                                    try {
+                                        giveKey(context.getSource(), StringArgumentType.getString(context, "tier"), context.getSource().getPlayerOrException());
+                                    } catch (CommandSyntaxException e) {
+                                        // Should not happen
+                                    }
+                                    return 1;
+                                })
+                                .then(Commands.argument("targets", EntityArgument.players())
+                                        .executes(context -> {
+                                            Collection<ServerPlayer> targets = EntityArgument.getPlayers(context, "targets");
+                                            String tier = StringArgumentType.getString(context, "tier");
+                                            int successCount = 0;
+                                            for (ServerPlayer target : targets) {
+                                                if (giveKey(context.getSource(), tier, target)) {
+                                                    successCount++;
+                                                }
+                                            }
+                                            final int finalSuccessCount = successCount;
+                                            context.getSource().sendSuccess(() -> Component.literal("§aGave key for " + tier + " to " + finalSuccessCount + " player(s)."), true);
+                                            return finalSuccessCount;
+                                        }))))
 
                 .then(Commands.literal("remove")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.remove"))
@@ -125,14 +143,8 @@ public class ModCommands {
                                 if (data.contains("lnt_tier")) {
                                     data.remove("lnt_tier");
                                     
-                                    if (data.hasUUID("lnt_display_uuid")) {
-                                        UUID oldUuid = data.getUUID("lnt_display_uuid");
-                                        Entity oldDisplay = level.getEntity(oldUuid);
-                                        if (oldDisplay != null) {
-                                            oldDisplay.kill();
-                                        }
-                                        data.remove("lnt_display_uuid");
-                                    }
+                                    NameplateManager.remove(be);
+                                    NameplateManager.removeDisplay(level, pos);
                                     
                                     be.setChanged();
                                     level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
@@ -151,31 +163,37 @@ public class ModCommands {
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.reload"))
                         .executes(context -> {
                             boolean success = LootLibrary.reload();
-                            context.getSource().sendSuccess(() -> Component.literal(success ? "§aConfigs reloaded!" : "§cError in configs!"), true);
+                            if (success) {
+                                NameplateManager.refreshAll();
+                                context.getSource().sendSuccess(() -> Component.literal("§aConfigs reloaded and all loot chest displays refreshed!"), true);
+                            } else {
+                                context.getSource().sendFailure(Component.literal("§cError in configs! Check server logs."));
+                            }
                             return success ? 1 : 0;
                         }))
 
                 .then(Commands.literal("givebag")
                         .requires(source -> PermissionManager.hasPermission(source, "lootnthings.command.givebag"))
                         .executes(context -> {
-                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt givebag <target> <tier>"));
+                            context.getSource().sendFailure(Component.literal("§cUsage: /lnt givebag <targets> <tier>"));
                             return 0;
                         })
-                        .then(Commands.argument("target", EntityArgument.player())
+                        .then(Commands.argument("targets", EntityArgument.players())
                                 .then(Commands.argument("tier", StringArgumentType.string()).suggests(BAG_TIER_SUGGESTIONS)
                                         .executes(context -> {
-                                            Player target = EntityArgument.getPlayer(context, "target");
+                                            Collection<ServerPlayer> targets = EntityArgument.getPlayers(context, "targets");
                                             String tier = StringArgumentType.getString(context, "tier");
-                                            ItemStack bag = LootLibrary.createBagFromTier(tier);
-
-                                            if (bag.isEmpty()) {
-                                                context.getSource().sendFailure(Component.literal("§cTier '" + tier + "' not found in bags subfolder!"));
-                                                return 0;
+                                            int successCount = 0;
+                                            for (ServerPlayer target : targets) {
+                                                ItemStack bag = LootLibrary.createBagFromTier(tier);
+                                                if (!bag.isEmpty()) {
+                                                    target.getInventory().add(bag);
+                                                    successCount++;
+                                                }
                                             }
-
-                                            target.getInventory().add(bag);
-                                            context.getSource().sendSuccess(() -> Component.literal("§aGave " + tier + " bag to " + target.getScoreboardName()), true);
-                                            return 1;
+                                            final int finalSuccessCount = successCount;
+                                            context.getSource().sendSuccess(() -> Component.literal("§aGave " + tier + " bag to " + finalSuccessCount + " player(s)."), true);
+                                            return finalSuccessCount;
                                         }))))
                 
                 .then(Commands.literal("pity")
@@ -209,57 +227,13 @@ public class ModCommands {
         );
     }
 
-    public static void createOrUpdateDisplay(ServerLevel level, BlockPos pos, BlockEntity be, String tierPath) {
-        Loot_n_things.LOGGER.info("createOrUpdateDisplay called for tier '{}' at {}", tierPath, pos);
-        CompoundTag data = be.getPersistentData();
-        
-        if (data.hasUUID("lnt_display_uuid")) {
-            Entity oldDisplay = level.getEntity(data.getUUID("lnt_display_uuid"));
-            if (oldDisplay != null) {
-                oldDisplay.kill();
-            }
-        }
-
-        data.putString("lnt_tier", tierPath);
-        
-        JsonObject json = LootLibrary.getLootFile(tierPath);
-        if (json != null && json.has("display_name")) {
-            String displayName = json.get("display_name").getAsString();
-            Component newName = Component.literal(LootResolver.applyPlaceholders(displayName, null, json, null, null, tierPath));
-            
-            TextDisplay textDisplay = EntityType.TEXT_DISPLAY.create(level);
-            if (textDisplay != null) {
-                CompoundTag displayData = new CompoundTag();
-                ListTag posList = new ListTag();
-                posList.add(DoubleTag.valueOf(pos.getX() + 0.5));
-                posList.add(DoubleTag.valueOf(pos.getY() + 1.1));
-                posList.add(DoubleTag.valueOf(pos.getZ() + 0.5));
-                
-                displayData.put("Pos", posList);
-                displayData.putString("text", Component.Serializer.toJson(newName, level.registryAccess()));
-                displayData.putString("billboard", "center");
-                displayData.putInt("background", 0xFF000000);
-                displayData.putBoolean("see_through", false);
-                textDisplay.load(displayData);
-                
-                level.addFreshEntity(textDisplay);
-                data.putUUID("lnt_display_uuid", textDisplay.getUUID());
-                Loot_n_things.LOGGER.info("Successfully created new display entity with UUID {}", textDisplay.getUUID());
-            }
-        }
-        
-        be.setChanged();
-        level.sendBlockUpdated(pos, be.getBlockState(), be.getBlockState(), 3);
-    }
-
-    private static int giveKey(CommandSourceStack source, String tier, Player target) {
+    private static boolean giveKey(CommandSourceStack source, String tier, Player target) {
         String path = "chests/" + tier;
         
-        final String finalPath = path;
-        JsonObject json = LootLibrary.getLootFile(finalPath);
+        JsonObject json = LootLibrary.getLootFile(path);
         if (json == null) {
-            source.sendFailure(Component.literal("§cLoot table '" + finalPath + "' not found!"));
-            return 0;
+            source.sendFailure(Component.literal("§cLoot table '" + path + "' not found!"));
+            return false;
         }
 
         Item keyItem = Items.TRIPWIRE_HOOK;
@@ -270,22 +244,21 @@ public class ModCommands {
 
         ItemStack stack = new ItemStack(keyItem);
         
-        stack.set(ModComponents.LOOT_KEY.get(), finalPath);
+        stack.set(ModComponents.LOOT_KEY.get(), path);
         
-        String keyName = "§6Key: §e" + finalPath.replace("chests/", "").replace("bags/", "");
+        String keyName = "§6Key: §e" + path.replace("chests/", "").replace("bags/", "");
         if (json.has("display_name")) {
             String chestName = json.get("display_name").getAsString();
-            keyName = "§6Key: " + LootResolver.applyPlaceholders(chestName, target, json, null, null, finalPath);
+            keyName = "§6Key: " + LootResolver.applyPlaceholders(chestName, target, json, null, null, path);
         }
         
-        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal(keyName));
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(keyName, target, json, null, null, path));
         
         if (!target.getInventory().add(stack)) {
             target.drop(stack, false);
         }
         
-        source.sendSuccess(() -> Component.literal("§aGave key for " + finalPath + " to " + target.getScoreboardName()), true);
-        return 1;
+        return true;
     }
 
     private static BlockHitResult getLookingAt(Player player) {

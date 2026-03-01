@@ -79,7 +79,7 @@ public class ChestEventHandler {
                 }
             } else {
                 String msg = "[red][bold]Locked! [reset][gray]Requires a [gold]" + chestTier.replace("chests/", "") + " Key[gray].";
-                player.displayClientMessage(Component.literal(LootResolver.applyPlaceholders(msg, player, null, null, null, chestTier)), true);
+                player.displayClientMessage(LootResolver.resolveComponent(msg, player, null, null, null, chestTier), true);
             }
         }
     }

@@ -28,10 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * Represents an active loot spinner session for a single player.
- * This class manages the GUI animation, sound effects, and reward granting.
- */
 public class LootSession {
     private static final Random RANDOM = new Random();
     private final Player player;
@@ -80,18 +76,11 @@ public class LootSession {
         return finished;
     }
 
-    /**
-     * The safety net. Grants rewards and announces them if the player closes the GUI early.
-     */
     public void forceGrantRewards() {
         if (finished) return;
         grantAndAnnounceRewards();
     }
 
-    /**
-     * Called every server tick to advance the spinner animation.
-     * @return True if the session is complete and should be removed, false otherwise.
-     */
     public boolean tick() {
         if (player.containerMenu == player.inventoryMenu) {
             forceGrantRewards();
@@ -100,7 +89,7 @@ public class LootSession {
 
         if (finished) {
             finishDelay++;
-            return finishDelay > 40; // Linger for 2 seconds after finishing
+            return finishDelay > 40;
         }
 
         tickCounter++;
@@ -108,22 +97,19 @@ public class LootSession {
         tickCounter = 0;
 
         animationStep++;
-        delay = 2 + (int)((animationStep / (float)maxSteps) * 8); // Animation slows down over time
+        delay = 2 + (int)((animationStep / (float)maxSteps) * 8);
 
         container.setItem(4, hopper);
 
-        // Shift all items in each row to the left
         for (int s = 0; s < spins; s++) {
             int rowStart = (s + 1) * 9;
             for (int col = 0; col < 8; col++) {
                 container.setItem(rowStart + col, container.getItem(rowStart + col + 1));
             }
             
-            // Insert the winning item at the end of the row just before the animation stops
             if (maxSteps - animationStep == 4) {
                 container.setItem(rowStart + 8, createIcon(winners.get(s), config, winnerVars.get(s)));
             } else {
-                // Otherwise, insert a random item from the current roll pool
                 JsonObject randomEntry = LootLibrary.rollWinner(pool, "weight");
                 Map<String, String> randomVars = LootResolver.resolveVariables(randomEntry, config);
                 container.setItem(rowStart + 8, createIcon(randomEntry, config, randomVars));
@@ -143,15 +129,11 @@ public class LootSession {
         return false;
     }
 
-    /**
-     * Called when the animation is complete. Handles the final visual updates to the GUI.
-     */
     private void finish() {
         if (finished) return;
         
         grantAndAnnounceRewards();
         
-        // GUI-only finishing touches
         for (int s = 0; s < spins; s++) {
             int winIndex = ((s + 1) * 9) + 4;
             ItemStack winStack = container.getItem(winIndex);
@@ -171,10 +153,6 @@ public class LootSession {
         }
     }
 
-    /**
-     * The core reward logic. Plays sounds, sends chat messages, and gives items.
-     * This is called either when the animation finishes or when the player closes the GUI early.
-     */
     private void grantAndAnnounceRewards() {
         if (finished) return;
         this.finished = true;
@@ -185,7 +163,7 @@ public class LootSession {
         }
         level.playSound(null, player.getX(), player.getY(), player.getZ(), winSound, SoundSource.PLAYERS, 1.2F, 1.1F);
 
-        player.sendSystemMessage(Component.literal(LootResolver.applyPlaceholders("[gold]--- [white]ROULETTE RESULTS [gold]---", player, config, null, null, tier)));
+        player.sendSystemMessage(LootResolver.resolveComponent("[gold]--- [white]ROULETTE RESULTS [gold]---", player, config, null, null, tier));
 
         for (int s = 0; s < spins; s++) {
             int finalAmt = winningAmounts.get(s);
@@ -193,12 +171,12 @@ public class LootSession {
             Map<String, String> vars = winnerVars.get(s);
             
             String summary = LootResolver.getRewardSummaryName(winner, finalAmt, config, vars);
-            player.sendSystemMessage(Component.literal(LootResolver.applyPlaceholders("  [green]> [white]" + summary, player, config, winner, vars, tier)));
+            player.sendSystemMessage(LootResolver.resolveComponent("  [green]> [white]" + summary, player, config, winner, vars, tier));
 
             if (config.has("broadcast") && config.getAsJsonObject("broadcast").has("win")) {
                 String winMsg = config.getAsJsonObject("broadcast").get("win").getAsString();
                 String resolvedWinMsg = winMsg.replace("<display_name>", winner.has("display_name") ? winner.get("display_name").getAsString() : "a reward");
-                level.getServer().getPlayerList().broadcastSystemMessage(Component.literal(LootResolver.applyPlaceholders(resolvedWinMsg, player, config, winner, vars, tier)), false);
+                level.getServer().getPlayerList().broadcastSystemMessage(LootResolver.resolveComponent(resolvedWinMsg, player, config, winner, vars, tier), false);
             }
 
             executeRewardSpecific(winner, player, level, finalAmt, config, vars);
@@ -227,19 +205,19 @@ public class LootSession {
             Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(resolvedId));
             if (item == Items.AIR && id.contains("<")) {
                  stack = new ItemStack(Items.BARRIER);
-                 stack.set(DataComponents.CUSTOM_NAME, Component.literal("§cInvalid Item: " + resolvedId));
+                 stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent("§cInvalid Item: " + resolvedId, null, rootJson, entry, resolvedVars, null));
             } else {
                 stack = new ItemStack(item);
             }
         } else if (type.equals("nothing")) {
             stack = new ItemStack(Items.BARRIER);
             String msg = entry.has("message") ? entry.get("message").getAsString() : "§cEmpty";
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(LootResolver.applyPlaceholders(msg, null, rootJson, entry, resolvedVars, null)));
+            stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(msg, null, rootJson, entry, resolvedVars, null));
         } else {
             stack = new ItemStack(Items.PAPER);
             if (entry.has("model_id")) stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(entry.get("model_id").getAsInt()));
             String name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
-            stack.set(DataComponents.CUSTOM_NAME, Component.literal(LootResolver.applyPlaceholders(name, null, rootJson, entry, resolvedVars, null)));
+            stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(name, null, rootJson, entry, resolvedVars, null));
         }
         return stack;
     }
@@ -276,7 +254,7 @@ public class LootSession {
                         long subCount = subEntry.has("count") ? subEntry.get("count").getAsLong() : 1;
                         
                         String summary = LootResolver.getRewardSummaryName(subEntry, subCount, rootJson, resolvedVars);
-                        player.sendSystemMessage(Component.literal(LootResolver.applyPlaceholders("    - " + summary, player, rootJson, subEntry, resolvedVars, null)));
+                        player.sendSystemMessage(LootResolver.resolveComponent("    - " + summary, player, rootJson, subEntry, resolvedVars, null));
                         executeRewardSpecific(subEntry, player, level, subCount, rootJson, resolvedVars);
                     }
                 }
@@ -292,7 +270,7 @@ public class LootSession {
             }
             case "nothing" -> {
                 String msg = entry.has("message") ? entry.get("message").getAsString() : "[red]Empty...";
-                player.displayClientMessage(Component.literal(LootResolver.applyPlaceholders(msg, player, rootJson, entry, resolvedVars, null)), true);
+                player.displayClientMessage(LootResolver.resolveComponent(msg, player, rootJson, entry, resolvedVars, null), true);
             }
         }
     }

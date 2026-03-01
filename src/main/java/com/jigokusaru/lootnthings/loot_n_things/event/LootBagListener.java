@@ -2,6 +2,7 @@ package com.jigokusaru.lootnthings.loot_n_things.event;
 
 import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
+import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
 import com.jigokusaru.lootnthings.loot_n_things.registry.ModComponents;
 import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
 import net.minecraft.network.chat.Component;
@@ -48,12 +49,12 @@ public class LootBagListener {
             if (PermissionManager.hasPermission(player, permission)) {
                 LootLibrary.openLootPreview(tierPath, player);
             } else {
-                player.displayClientMessage(Component.literal("§cYou do not have permission to preview this loot."), true);
+                player.displayClientMessage(LootResolver.resolveComponent("§cYou do not have permission to preview this loot.", player, null, null, null, tierPath), true);
             }
         } else {
             String permission = json.has("permission") ? json.get("permission").getAsString() + ".open" : "lootnthings.open." + tierPath.replace("/", ".");
             if (!PermissionManager.hasPermission(player, permission)) {
-                player.displayClientMessage(Component.literal("§cYou do not have permission to open this."), true);
+                player.displayClientMessage(LootResolver.resolveComponent("§cYou do not have permission to open this.", player, null, null, null, tierPath), true);
                 return;
             }
             

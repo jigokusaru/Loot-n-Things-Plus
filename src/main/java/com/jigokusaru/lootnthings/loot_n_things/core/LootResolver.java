@@ -5,7 +5,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.Loot_n_things;
 import com.jigokusaru.lootnthings.loot_n_things.config.Config;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.scores.Objective;
@@ -13,26 +18,69 @@ import net.minecraft.world.scores.ScoreAccess;
 import net.minecraft.world.scores.Scoreboard;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class LootResolver {
     private static final Random RANDOM = new Random();
-    private static final Map<String, String> COLOR_MAP = new LinkedHashMap<>();
+    private static final Pattern FORMATTING_PATTERN = Pattern.compile("(?i)\\[(#[A-Fa-f0-9]{6}|[A-Z_]+)\\]");
 
-    static {
-        COLOR_MAP.put("[black]", "§0"); COLOR_MAP.put("[dark_blue]", "§1");
-        COLOR_MAP.put("[dark_green]", "§2"); COLOR_MAP.put("[dark_aqua]", "§3");
-        COLOR_MAP.put("[dark_red]", "§4"); COLOR_MAP.put("[dark_purple]", "§5");
-        COLOR_MAP.put("[gold]", "§6"); COLOR_MAP.put("[gray]", "§7");
-        COLOR_MAP.put("[dark_gray]", "§8"); COLOR_MAP.put("[blue]", "§9");
-        COLOR_MAP.put("[green]", "§a"); COLOR_MAP.put("[aqua]", "§b");
-        COLOR_MAP.put("[red]", "§c"); COLOR_MAP.put("[light_purple]", "§d");
-        COLOR_MAP.put("[yellow]", "§e"); COLOR_MAP.put("[white]", "§f");
-        COLOR_MAP.put("[obfuscated]", "§k"); COLOR_MAP.put("[bold]", "§l");
-        COLOR_MAP.put("[strikethrough]", "§m"); COLOR_MAP.put("[underline]", "§n");
-        COLOR_MAP.put("[italic]", "§o"); COLOR_MAP.put("[reset]", "§r");
+    public static MutableComponent resolveComponent(String text, @Nullable Player player, @Nullable JsonObject rootJson, @Nullable JsonObject entryJson, @Nullable Map<String, String> resolvedVars, @Nullable String tierName) {
+        String processedText = applyPlaceholders(text, player, rootJson, entryJson, resolvedVars, tierName);
+        
+        MutableComponent baseComponent = Component.empty();
+        Matcher matcher = FORMATTING_PATTERN.matcher(processedText);
+        int lastEnd = 0;
+        Style currentStyle = Style.EMPTY;
+
+        while (matcher.find()) {
+            if (matcher.start() > lastEnd) {
+                baseComponent.append(Component.literal(processedText.substring(lastEnd, matcher.start())).withStyle(currentStyle));
+            }
+
+            String tag = matcher.group(1).toUpperCase();
+            if (tag.startsWith("#")) {
+                Optional<TextColor> textColor = TextColor.parseColor(tag).result();
+                currentStyle = currentStyle.withColor(textColor.orElse(null));
+            } else {
+                currentStyle = switch (tag) {
+                    case "BLACK" -> currentStyle.withColor(ChatFormatting.BLACK);
+                    case "DARK_BLUE" -> currentStyle.withColor(ChatFormatting.DARK_BLUE);
+                    case "DARK_GREEN" -> currentStyle.withColor(ChatFormatting.DARK_GREEN);
+                    case "DARK_AQUA" -> currentStyle.withColor(ChatFormatting.DARK_AQUA);
+                    case "DARK_RED" -> currentStyle.withColor(ChatFormatting.DARK_RED);
+                    case "DARK_PURPLE" -> currentStyle.withColor(ChatFormatting.DARK_PURPLE);
+                    case "GOLD" -> currentStyle.withColor(ChatFormatting.GOLD);
+                    case "GRAY" -> currentStyle.withColor(ChatFormatting.GRAY);
+                    case "DARK_GRAY" -> currentStyle.withColor(ChatFormatting.DARK_GRAY);
+                    case "BLUE" -> currentStyle.withColor(ChatFormatting.BLUE);
+                    case "GREEN" -> currentStyle.withColor(ChatFormatting.GREEN);
+                    case "AQUA" -> currentStyle.withColor(ChatFormatting.AQUA);
+                    case "RED" -> currentStyle.withColor(ChatFormatting.RED);
+                    case "LIGHT_PURPLE" -> currentStyle.withColor(ChatFormatting.LIGHT_PURPLE);
+                    case "YELLOW" -> currentStyle.withColor(ChatFormatting.YELLOW);
+                    case "WHITE" -> currentStyle.withColor(ChatFormatting.WHITE);
+                    case "BOLD" -> currentStyle.withBold(true);
+                    case "ITALIC" -> currentStyle.withItalic(true);
+                    case "UNDERLINE" -> currentStyle.withUnderlined(true);
+                    case "STRIKETHROUGH" -> currentStyle.withStrikethrough(true);
+                    case "OBFUSCATED" -> currentStyle.withObfuscated(true);
+                    case "RESET" -> Style.EMPTY;
+                    default -> currentStyle;
+                };
+            }
+            lastEnd = matcher.end();
+        }
+
+        if (lastEnd < processedText.length()) {
+            baseComponent.append(Component.literal(processedText.substring(lastEnd)).withStyle(currentStyle));
+        }
+
+        return baseComponent;
     }
 
     public static String applyPlaceholders(String text, @Nullable Player player, @Nullable JsonObject rootJson, @Nullable JsonObject entryJson, @Nullable Map<String, String> resolvedVars, @Nullable String tierName) {
@@ -60,7 +108,7 @@ public class LootResolver {
             
             Matcher scoreMatcher = Pattern.compile("\\[score\\.(\\w+)\\]").matcher(p);
             if (scoreMatcher.find()) {
-                StringBuilder scoreSb = new StringBuilder();
+                StringBuffer scoreSb = new StringBuffer();
                 do {
                     String objectiveName = scoreMatcher.group(1);
                     Scoreboard scoreboard = player.level().getScoreboard();
@@ -83,7 +131,7 @@ public class LootResolver {
 
         Matcher mathMatcher = Pattern.compile("\\[([0-9]+(?:\\.[0-9]+)?)\\s*([+\\-*/])\\s*([0-9]+(?:\\.[0-9]+)?)\\]").matcher(p);
         if (mathMatcher.find()) {
-            StringBuilder mathSb = new StringBuilder();
+            StringBuffer mathSb = new StringBuffer();
             do {
                 try {
                     double n1 = Double.parseDouble(mathMatcher.group(1));
@@ -104,25 +152,7 @@ public class LootResolver {
             mathMatcher.appendTail(mathSb);
             p = mathSb.toString();
         }
-
-        for (Map.Entry<String, String> en : COLOR_MAP.entrySet()) {
-            p = p.replace(en.getKey(), en.getValue());
-        }
-
-        Matcher m = Pattern.compile("\\[#([A-Fa-f0-9]{6})]").matcher(p);
-        if (m.find()) {
-            StringBuilder sb = new StringBuilder();
-            do {
-                String h = m.group(1);
-                StringBuilder mc = new StringBuilder("§x");
-                for (char c : h.toCharArray()) {
-                    mc.append("§").append(c);
-                }
-                m.appendReplacement(sb, mc.toString());
-            } while (m.find());
-            m.appendTail(sb);
-            p = sb.toString();
-        }
+        
         return p;
     }
 

@@ -80,7 +80,7 @@ public class LootLibrary {
         bag.set(ModComponents.LNT_BAG_TIER.get(), fullPath);
 
         String displayName = json.has("display_name") ? json.get("display_name").getAsString() : tier + " Loot Bag";
-        bag.set(DataComponents.CUSTOM_NAME, Component.literal(LootResolver.applyPlaceholders(displayName, null, json, null, null, tier)));
+        bag.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(displayName, null, json, null, null, tier));
 
         return bag;
     }
@@ -110,7 +110,7 @@ public class LootLibrary {
                         @Override
                         public boolean stillValid(Player p_40220_) { return true; }
                     },
-                    Component.literal(LootResolver.applyPlaceholders(title, player, json, null, null, tier)))));
+                    LootResolver.resolveComponent(title, player, json, null, null, tier))));
         }
     }
     
@@ -120,7 +120,7 @@ public class LootLibrary {
             long lastUsed = COOLDOWNS.computeIfAbsent(player.getUUID(), k -> new HashMap<>()).getOrDefault(tier, 0L);
             if (System.currentTimeMillis() - lastUsed < cooldown) {
                 long remaining = (cooldown - (System.currentTimeMillis() - lastUsed)) / 1000;
-                player.displayClientMessage(Component.literal("§cYou must wait " + remaining + " seconds to use this again."), true);
+                player.displayClientMessage(LootResolver.resolveComponent("§cYou must wait " + remaining + " seconds to use this again.", player, json, null, null, tier), true);
                 return false;
             }
         }
@@ -133,7 +133,7 @@ public class LootLibrary {
                 case "xp" -> {
                     int amount = cost.get("amount").getAsInt();
                     if (player.experienceLevel < amount) {
-                        player.displayClientMessage(Component.literal("§cYou need " + amount + " XP levels to open this."), true);
+                        player.displayClientMessage(LootResolver.resolveComponent("§cYou need " + amount + " XP levels to open this.", player, json, null, null, tier), true);
                         return false;
                     }
                 }
@@ -141,7 +141,7 @@ public class LootLibrary {
                     int amount = cost.get("amount").getAsInt();
                     Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(cost.get("id").getAsString()));
                     if (player.getInventory().countItem(item) < amount) {
-                        player.displayClientMessage(Component.literal("§cYou need " + amount + " " + item.getDescription().getString() + " to open this."), true);
+                        player.displayClientMessage(LootResolver.resolveComponent("§cYou need " + amount + " " + item.getDescription().getString() + " to open this.", player, json, null, null, tier), true);
                         return false;
                     }
                 }
@@ -153,7 +153,7 @@ public class LootLibrary {
                     double amount = cost.get("amount").getAsDouble();
                     long longAmount = (long) (Config.COMMON.hasDecimals.get() ? amount * 100 : amount);
                     if (!Loot_n_things.economy.hasEnough((ServerPlayer) player, longAmount)) {
-                        player.displayClientMessage(Component.literal("§cYou do not have enough money! You need " + Loot_n_things.economy.getCurrencyName(longAmount)), true);
+                        player.displayClientMessage(LootResolver.resolveComponent("§cYou do not have enough money! You need " + Loot_n_things.economy.getCurrencyName(longAmount), player, json, null, null, tier), true);
                         return false;
                     }
                 }
@@ -209,7 +209,7 @@ public class LootLibrary {
         if (json.has("pity_after") && currentPity >= json.get("pity_after").getAsInt()) {
             isPitySpin = true;
             pityData.putInt(tier, 0);
-            player.sendSystemMessage(Component.literal("§d§lPity roll activated!"));
+            player.sendSystemMessage(LootResolver.resolveComponent("§d§lPity roll activated!", player, json, null, null, tier));
         }
 
         if (isPitySpin) {
@@ -252,7 +252,7 @@ public class LootLibrary {
                     deck.addAll(IntStream.range(0, pool.size()).boxed().toList());
                     if (json.has("broadcast") && json.getAsJsonObject("broadcast").has("shuffle")) {
                         String shuffleMsg = json.getAsJsonObject("broadcast").get("shuffle").getAsString();
-                        level.getServer().getPlayerList().broadcastSystemMessage(Component.literal(LootResolver.applyPlaceholders(shuffleMsg, null, json, null, null, tier)), false);
+                        level.getServer().getPlayerList().broadcastSystemMessage(LootResolver.resolveComponent(shuffleMsg, null, json, null, null, tier), false);
                     }
                 }
                 
@@ -348,7 +348,7 @@ public class LootLibrary {
                     @Override
                     public boolean stillValid(Player p_40220_) { return true; }
                 },
-                Component.literal(LootResolver.applyPlaceholders(title, player, json, null, null, tier)));
+                LootResolver.resolveComponent(title, player, json, null, null, tier));
 
         final boolean finalHasRealWin = hasRealWin;
         final int finalActualSpins = actualSpins;
@@ -369,20 +369,20 @@ public class LootLibrary {
         int weight = entry.get("weight").getAsInt();
         double percent = (double) weight / totalWeight * 100.0;
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.literal(String.format("§7Chance: §6%.2f%%", percent)));
+        lore.add(LootResolver.resolveComponent(String.format("§7Chance: §6%.2f%%", percent), null, rootJson, entry, null, null));
         
         if (entry.has("count")) {
             JsonElement ce = entry.get("count");
             if (ce.isJsonObject()) {
                 JsonObject range = ce.getAsJsonObject();
                 List<Integer> keys = range.keySet().stream().map(Integer::parseInt).sorted().toList();
-                if (!keys.isEmpty()) lore.add(Component.literal("§7Amount: §e" + keys.getFirst() + " - " + keys.getLast()));
+                if (!keys.isEmpty()) lore.add(LootResolver.resolveComponent("§7Amount: §e" + keys.getFirst() + " - " + keys.getLast(), null, rootJson, entry, null, null));
             } else if (ce.isJsonPrimitive() && ce.getAsJsonPrimitive().isString()) {
                 String varName = ce.getAsString().replace("<", "").replace(">", "");
                 if (rootJson != null && rootJson.has("vars") && rootJson.getAsJsonObject("vars").has(varName)) {
                     JsonElement varData = rootJson.getAsJsonObject("vars").get(varName);
                     if (varData.isJsonObject() && varData.getAsJsonObject().has("min") && varData.getAsJsonObject().has("max")) {
-                        lore.add(Component.literal("§7Amount: §e" + varData.getAsJsonObject().get("min").getAsInt() + " - " + varData.getAsJsonObject().get("max").getAsInt()));
+                        lore.add(LootResolver.resolveComponent("§7Amount: §e" + varData.getAsJsonObject().get("min").getAsInt() + " - " + varData.getAsJsonObject().get("max").getAsInt(), null, rootJson, entry, null, null));
                     } else if (varData.isJsonArray()) {
                         List<String> amounts = new ArrayList<>();
                         for (JsonElement e : varData.getAsJsonArray()) {
@@ -390,13 +390,13 @@ public class LootLibrary {
                                 amounts.add(e.getAsJsonObject().get("value").getAsString());
                             }
                         }
-                        lore.add(Component.literal("§7Amount: §e" + String.join(", ", amounts)));
+                        lore.add(LootResolver.resolveComponent("§7Amount: §e" + String.join(", ", amounts), null, rootJson, entry, null, null));
                     }
                 } else {
-                    lore.add(Component.literal("§7Amount: §e" + ce.getAsString()));
+                    lore.add(LootResolver.resolveComponent("§7Amount: §e" + ce.getAsString(), null, rootJson, entry, null, null));
                 }
             } else {
-                lore.add(Component.literal("§7Amount: §e" + ce.getAsInt()));
+                lore.add(LootResolver.resolveComponent("§7Amount: §e" + ce.getAsInt(), null, rootJson, entry, null, null));
             }
         }
         
@@ -406,12 +406,12 @@ public class LootLibrary {
         else if (type.equals("command")) textToCheck = entry.get("command").getAsString();
         
         if (type.equals("multi") && entry.has("rewards")) {
-            lore.add(Component.literal("§bContains:"));
+            lore.add(LootResolver.resolveComponent("§bContains:", null, rootJson, entry, null, null));
             for (JsonElement subElement : entry.getAsJsonArray("rewards")) {
                 JsonObject subEntry = subElement.getAsJsonObject();
                 long subCount = subEntry.has("count") ? subEntry.get("count").getAsLong() : 1;
                 String summary = LootResolver.getRewardSummaryName(subEntry, subCount, rootJson, null);
-                lore.add(Component.literal(LootResolver.applyPlaceholders("  §7- " + summary, null, rootJson, subEntry, null, null)));
+                lore.add(LootResolver.resolveComponent("  §7- " + summary, null, rootJson, subEntry, null, null));
             }
         }
         
@@ -443,7 +443,7 @@ public class LootLibrary {
                         if (optionsStr.length() > 40) {
                             optionsStr = optionsStr.substring(0, 37) + "...";
                         }
-                        lore.add(Component.literal("§bVar <" + varName + ">: §f" + optionsStr));
+                        lore.add(LootResolver.resolveComponent("§bVar <" + varName + ">: §f" + optionsStr, null, rootJson, entry, null, null));
                     }
                 }
             }
