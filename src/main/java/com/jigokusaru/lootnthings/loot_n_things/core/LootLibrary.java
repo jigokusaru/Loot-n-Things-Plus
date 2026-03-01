@@ -6,7 +6,6 @@ import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.Loot_n_things;
 import com.jigokusaru.lootnthings.loot_n_things.config.Config;
 import com.jigokusaru.lootnthings.loot_n_things.config.LootConfigManager;
-import com.jigokusaru.lootnthings.loot_n_things.registry.ModComponents;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -22,6 +21,7 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.item.component.ItemLore;
 import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
@@ -77,7 +77,7 @@ public class LootLibrary {
             bag.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(json.get("model_id").getAsInt()));
         }
 
-        bag.set(ModComponents.LNT_BAG_TIER.get(), fullPath);
+        CustomData.update(DataComponents.CUSTOM_DATA, bag, tag -> tag.putString("lnt_bag_tier", fullPath));
 
         String displayName = json.has("display_name") ? json.get("display_name").getAsString() : tier + " Loot Bag";
         bag.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(displayName, null, json, null, null, tier));

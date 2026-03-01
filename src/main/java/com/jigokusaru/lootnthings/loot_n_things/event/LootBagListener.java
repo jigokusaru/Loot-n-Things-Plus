@@ -3,60 +3,44 @@ package com.jigokusaru.lootnthings.loot_n_things.event;
 import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
-import com.jigokusaru.lootnthings.loot_n_things.registry.ModComponents;
 import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 public class LootBagListener {
 
-    /**
-     * Fired when a player right-clicks on a block with a loot bag.
-     * We consume the event immediately to prevent the block from being placed or interacted with.
-     */
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         ItemStack stack = event.getItemStack();
-        String tierPath = stack.get(ModComponents.LNT_BAG_TIER.get());
-
-        if (tierPath != null) {
-            // This is the robust way to handle this.
-            // It immediately consumes the event, preventing any other right-click actions.
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData != null && customData.copyTag().contains("lnt_bag_tier")) {
             event.setCancellationResult(InteractionResult.CONSUME);
-            
-            // Manually trigger the item interaction logic since we consumed the block one.
             if (event.getEntity().level() instanceof ServerLevel serverLevel) {
-                handleBagInteraction(event.getEntity(), stack, tierPath, serverLevel);
+                handleBagInteraction(event.getEntity(), stack, customData.copyTag().getString("lnt_bag_tier"), serverLevel);
             }
         }
     }
 
-    /**
-     * Fired when a player right-clicks with an item in the air.
-     */
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
         Player player = event.getEntity();
         ItemStack stack = event.getItemStack();
-        String tierPath = stack.get(ModComponents.LNT_BAG_TIER.get());
-
-        if (tierPath != null) {
+        CustomData customData = stack.get(DataComponents.CUSTOM_DATA);
+        if (customData != null && customData.copyTag().contains("lnt_bag_tier")) {
             event.setCancellationResult(InteractionResult.SUCCESS);
-
             if (player.level() instanceof ServerLevel serverLevel) {
-                handleBagInteraction(player, stack, tierPath, serverLevel);
+                handleBagInteraction(player, stack, customData.copyTag().getString("lnt_bag_tier"), serverLevel);
             }
         }
     }
 
-    /**
-     * Centralized logic for handling a bag interaction.
-     */
     private static void handleBagInteraction(Player player, ItemStack stack, String tierPath, ServerLevel serverLevel) {
         JsonObject json = LootLibrary.getLootFile(tierPath);
         if (json == null) return;

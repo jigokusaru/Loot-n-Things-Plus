@@ -3,13 +3,15 @@ package com.jigokusaru.lootnthings.loot_n_things.event;
 import com.google.gson.JsonObject;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootLibrary;
 import com.jigokusaru.lootnthings.loot_n_things.core.LootResolver;
-import com.jigokusaru.lootnthings.loot_n_things.registry.ModComponents;
 import com.jigokusaru.lootnthings.loot_n_things.util.PermissionManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -68,14 +70,16 @@ public class ChestEventHandler {
             }
 
             ItemStack heldItem = player.getMainHandItem();
-            String keyTier = heldItem.get(ModComponents.LOOT_KEY.get());
-
-            if (keyTier != null && keyTier.equals(chestTier)) {
-                if (json != null && LootLibrary.canOpen(chestTier, player, json)) {
-                    if (!player.getAbilities().instabuild) {
-                        heldItem.shrink(1);
+            CustomData customData = heldItem.get(DataComponents.CUSTOM_DATA);
+            if (customData != null && customData.copyTag().contains("lnt_key_tier")) {
+                String keyTier = customData.copyTag().getString("lnt_key_tier");
+                if (keyTier.equals(chestTier)) {
+                    if (json != null && LootLibrary.canOpen(chestTier, player, json)) {
+                        if (!player.getAbilities().instabuild) {
+                            heldItem.shrink(1);
+                        }
+                        LootLibrary.openLootSpinner(chestTier, player, (ServerLevel) level);
                     }
-                    LootLibrary.openLootSpinner(chestTier, player, (ServerLevel) level);
                 }
             } else {
                 String msg = "[red][bold]Locked! [reset][gray]Requires a [gold]" + chestTier.replace("chests/", "") + " Key[gray].";
@@ -97,8 +101,10 @@ public class ChestEventHandler {
     @SubscribeEvent
     public void onKeyPlace(BlockEvent.EntityPlaceEvent event) {
         if (event.getEntity() instanceof Player player) {
-            if (player.getMainHandItem().has(ModComponents.LNT_BAG_TIER.get()) || player.getMainHandItem().has(ModComponents.LOOT_KEY.get())) {
-                if (player.getMainHandItem().getItem() instanceof net.minecraft.world.item.BlockItem) {
+            ItemStack heldItem = player.getMainHandItem();
+            CustomData customData = heldItem.get(DataComponents.CUSTOM_DATA);
+            if (customData != null && (customData.copyTag().contains("lnt_bag_tier") || customData.copyTag().contains("lnt_key_tier"))) {
+                if (heldItem.getItem() instanceof net.minecraft.world.item.BlockItem) {
                     event.setCanceled(true);
                 }
             }

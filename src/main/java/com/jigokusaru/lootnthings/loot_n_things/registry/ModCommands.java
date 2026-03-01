@@ -15,6 +15,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -25,6 +26,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
@@ -244,7 +246,7 @@ public class ModCommands {
 
         ItemStack stack = new ItemStack(keyItem);
         
-        stack.set(ModComponents.LOOT_KEY.get(), path);
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putString("lnt_key_tier", path));
         
         String keyName = "§6Key: §e" + path.replace("chests/", "").replace("bags/", "");
         if (json.has("display_name")) {
