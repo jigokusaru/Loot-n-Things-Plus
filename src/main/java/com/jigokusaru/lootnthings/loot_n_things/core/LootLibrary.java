@@ -306,12 +306,25 @@ public class LootLibrary {
         List<Map<String, String>> winnerVars = new ArrayList<>();
         boolean hasRealWin = false;
         for (JsonObject winner : winners) {
-            winnerVars.add(LootResolver.resolveVariables(winner, json));
+            Map<String, String> resolvedVars = LootResolver.resolveVariables(winner, json);
+            winnerVars.add(resolvedVars);
+            
             if (!winner.get("type").getAsString().equals("nothing")) hasRealWin = true;
+            
             int amount = 1;
             if (winner.has("count")) {
                 JsonElement ce = winner.get("count");
-                amount = ce.isJsonObject() ? LootResolver.rollWeightedRange(ce.getAsJsonObject()) : ce.getAsInt();
+                if (ce.isJsonObject()) {
+                    amount = LootResolver.rollWeightedRange(ce.getAsJsonObject());
+                } else {
+                    String countStr = LootResolver.applyPlaceholders(ce.getAsString(), player, json, winner, resolvedVars, tier);
+                    try {
+                        amount = Integer.parseInt(countStr);
+                    } catch (NumberFormatException e) {
+                        Loot_n_things.LOGGER.error("Failed to parse count '{}' for tier '{}'", countStr, tier, e);
+                        amount = 1;
+                    }
+                }
             }
             winningAmounts.add(amount);
         }
