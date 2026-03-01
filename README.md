@@ -2,6 +2,8 @@
 
 Welcome to Loot and Things Plus, a highly configurable and powerful loot system for Minecraft NeoForge. This mod allows server administrators to create custom loot chests and loot bags with advanced features like weighted rewards, variables, pity timers, and server-wide announcements.
 
+**This is a SERVER-SIDE ONLY mod. Players do not need to install it to join a server that is running it.**
+
 ## Compatibility
 - **Minecraft Version:** 1.21.1
 - **NeoForge Version:** 21.1.219+
