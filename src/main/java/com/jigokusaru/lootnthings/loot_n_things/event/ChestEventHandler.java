@@ -71,20 +71,21 @@ public class ChestEventHandler {
 
             ItemStack heldItem = player.getMainHandItem();
             CustomData customData = heldItem.get(DataComponents.CUSTOM_DATA);
-            if (customData != null && customData.copyTag().contains("lnt_key_tier")) {
-                String keyTier = customData.copyTag().getString("lnt_key_tier");
-                if (keyTier.equals(chestTier)) {
+            if (customData != null) {
+                CompoundTag lntTag = customData.copyTag().getCompound("loot_n_things");
+                if (lntTag.getString("type").equals("key") && lntTag.getString("tier").equals(chestTier)) {
                     if (json != null && LootLibrary.canOpen(chestTier, player, json)) {
                         if (!player.getAbilities().instabuild) {
                             heldItem.shrink(1);
                         }
                         LootLibrary.openLootSpinner(chestTier, player, (ServerLevel) level);
                     }
+                    return; // Key was used, stop here.
                 }
-            } else {
-                String msg = "[red][bold]Locked! [reset][gray]Requires a [gold]" + chestTier.replace("chests/", "") + " Key[gray].";
-                player.displayClientMessage(LootResolver.resolveComponent(msg, player, null, null, null, chestTier), true);
             }
+            
+            String msg = "[red][bold]Locked! [reset][gray]Requires a [gold]" + chestTier.replace("chests/", "") + " Key[gray].";
+            player.displayClientMessage(LootResolver.resolveComponent(msg, player, null, null, null, chestTier), true);
         }
     }
 
@@ -103,9 +104,12 @@ public class ChestEventHandler {
         if (event.getEntity() instanceof Player player) {
             ItemStack heldItem = player.getMainHandItem();
             CustomData customData = heldItem.get(DataComponents.CUSTOM_DATA);
-            if (customData != null && (customData.copyTag().contains("lnt_bag_tier") || customData.copyTag().contains("lnt_key_tier"))) {
-                if (heldItem.getItem() instanceof net.minecraft.world.item.BlockItem) {
-                    event.setCanceled(true);
+            if (customData != null) {
+                CompoundTag lntTag = customData.copyTag().getCompound("loot_n_things");
+                if (lntTag.contains("type")) { // Check if it's any of our items
+                    if (heldItem.getItem() instanceof net.minecraft.world.item.BlockItem) {
+                        event.setCanceled(true);
+                    }
                 }
             }
         }

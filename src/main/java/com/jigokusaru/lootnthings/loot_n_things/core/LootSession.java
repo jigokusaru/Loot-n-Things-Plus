@@ -198,27 +198,32 @@ public class LootSession {
     public static ItemStack createIcon(JsonObject entry, @Nullable JsonObject rootJson, @Nullable Map<String, String> resolvedVars) {
         String type = entry.get("type").getAsString();
         ItemStack stack;
-        if (type.equals("item")) {
+
+        if (entry.has("icon")) {
+            Item iconItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(entry.get("icon").getAsString()));
+            stack = new ItemStack(iconItem);
+        } else if (type.equals("item")) {
             String id = entry.get("id").getAsString();
             String resolvedId = LootResolver.applyPlaceholders(id, null, rootJson, entry, resolvedVars, null);
-            
             Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(resolvedId));
             if (item == Items.AIR && id.contains("<")) {
                  stack = new ItemStack(Items.BARRIER);
-                 stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent("§cInvalid Item: " + resolvedId, null, rootJson, entry, resolvedVars, null));
             } else {
                 stack = new ItemStack(item);
             }
         } else if (type.equals("nothing")) {
             stack = new ItemStack(Items.BARRIER);
-            String msg = entry.has("message") ? entry.get("message").getAsString() : "§cEmpty";
-            stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(msg, null, rootJson, entry, resolvedVars, null));
         } else {
             stack = new ItemStack(Items.PAPER);
-            if (entry.has("model_id")) stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(entry.get("model_id").getAsInt()));
-            String name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
-            stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(name, null, rootJson, entry, resolvedVars, null));
         }
+
+        if (entry.has("model_id")) {
+            stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(entry.get("model_id").getAsInt()));
+        }
+
+        String name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
+        stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(name, null, rootJson, entry, resolvedVars, null));
+
         return stack;
     }
 

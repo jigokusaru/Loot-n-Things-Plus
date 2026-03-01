@@ -246,7 +246,12 @@ public class ModCommands {
 
         ItemStack stack = new ItemStack(keyItem);
         
-        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putString("lnt_key_tier", path));
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
+            CompoundTag lntTag = new CompoundTag();
+            lntTag.putString("type", "key");
+            lntTag.putString("tier", path);
+            tag.put("loot_n_things", lntTag);
+        });
         
         String keyName = "§6Key: §e" + path.replace("chests/", "").replace("bags/", "");
         if (json.has("display_name")) {

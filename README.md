@@ -137,6 +137,7 @@ Here is a detailed breakdown of a loot table JSON file.
       "type": "item",
       "id": "minecraft:diamond",
       "display_name": "A Shiny Diamond",
+      "icon": "minecraft:diamond",
       "count": 1,
       "weight": 10,
       "pity_weight": 5,
@@ -173,6 +174,7 @@ Here is a detailed breakdown of a loot table JSON file.
 - `weight`: The chance of this item being picked in a normal roll.
 - `pity_weight` (Optional): The weight used during a pity roll.
 - `display_name` (Optional): A custom name for the reward.
+- `icon` (Optional): Overrides the item shown in the spinner GUI.
 - `count` (Optional, Default: 1): The amount of the item or currency.
 - `id` (Required for `item` and `loot_table`): The item ID or the path to another loot table file.
 - `command` (Required for `command`): The command to execute.

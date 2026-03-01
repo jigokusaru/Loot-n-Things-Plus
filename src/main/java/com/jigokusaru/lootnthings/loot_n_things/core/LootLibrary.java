@@ -65,7 +65,7 @@ public class LootLibrary {
     }
 
     public static ItemStack createBagFromTier(String tier) {
-        String fullPath = tier.startsWith("bags/") ? tier : "bags/" + tier;
+        String fullPath = "bags/" + tier;
         JsonObject json = LootConfigManager.getLootFile(fullPath);
         if (json == null) return ItemStack.EMPTY;
 
@@ -77,7 +77,12 @@ public class LootLibrary {
             bag.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(json.get("model_id").getAsInt()));
         }
 
-        CustomData.update(DataComponents.CUSTOM_DATA, bag, tag -> tag.putString("lnt_bag_tier", fullPath));
+        CustomData.update(DataComponents.CUSTOM_DATA, bag, tag -> {
+            CompoundTag lntTag = new CompoundTag();
+            lntTag.putString("type", "bag");
+            lntTag.putString("tier", fullPath);
+            tag.put("loot_n_things", lntTag);
+        });
 
         String displayName = json.has("display_name") ? json.get("display_name").getAsString() : tier + " Loot Bag";
         bag.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(displayName, null, json, null, null, tier));

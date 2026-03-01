@@ -12,6 +12,7 @@
     {
       "type": "command",
       "display_name": "Bonus XP",
+      "icon": "minecraft:experience_bottle",
       "command": "xp add [player] [<xp_level>*10] points",
       "weight": 10,
       "comment": "Gives the player XP equal to their current level times 10."
@@ -19,6 +20,7 @@
     {
       "type": "command",
       "display_name": "Mob Kills Reward",
+      "icon": "minecraft:creeper_head",
       "command": "eco give [player] [score.mob_kills]",
       "weight": 10,
       "comment": "Gives the player money equal to their 'mob_kills' scoreboard objective."
@@ -26,6 +28,7 @@
     {
       "type": "economy",
       "display_name": "Random Amount of Money",
+      "icon": "minecraft:diamond",
       "count": "<random_amount>",
       "weight": 5,
       "comment": "Gives a random amount of money between 100 and 500."
