@@ -241,21 +241,21 @@ public class LootResolver {
                 String id = entry.get("id").getAsString();
                 id = applyPlaceholders(id, null, rootJson, entry, vars, null);
                 name = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id)).getDescription().getString();
+                return (int)count + " " + applyPlaceholders(name, null, rootJson, entry, vars, null);
             }
-            case "nothing" -> name = entry.has("message") ? entry.get("message").getAsString() : "Nothing";
+            case "nothing" -> {
+                return entry.has("message") ? entry.get("message").getAsString() : "Nothing";
+            }
             case "economy" -> {
                 if (Loot_n_things.economy != null) {
-                    long amount = count;
-                    if (Config.COMMON.hasDecimals.get()) {
-                        amount = count * 100;
-                    }
-                    return Loot_n_things.economy.getCurrencyName(amount);
+                    return Loot_n_things.economy.getCurrencyName(count);
                 } else {
-                    return count + " (Economy Mod Not Found)";
+                    return "[No Economy Mod Found]";
                 }
             }
-            default -> name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
+            default -> {
+                return entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
+            }
         }
-        return (int)count + " " + applyPlaceholders(name, null, rootJson, entry, vars, null);
     }
 }

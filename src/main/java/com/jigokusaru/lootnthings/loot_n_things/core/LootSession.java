@@ -198,6 +198,7 @@ public class LootSession {
     public static ItemStack createIcon(JsonObject entry, @Nullable JsonObject rootJson, @Nullable Map<String, String> resolvedVars) {
         String type = entry.get("type").getAsString();
         ItemStack stack;
+        String name;
 
         if (entry.has("icon")) {
             Item iconItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse(entry.get("icon").getAsString()));
@@ -216,12 +217,17 @@ public class LootSession {
         } else {
             stack = new ItemStack(Items.PAPER);
         }
+        
+        if (entry.has("display_name")) {
+            name = entry.get("display_name").getAsString();
+        } else {
+            name = LootResolver.getRewardSummaryName(entry, 1, rootJson, resolvedVars);
+        }
 
         if (entry.has("model_id")) {
             stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(entry.get("model_id").getAsInt()));
         }
 
-        String name = entry.has("display_name") ? entry.get("display_name").getAsString() : "Reward";
         stack.set(DataComponents.CUSTOM_NAME, LootResolver.resolveComponent(name, null, rootJson, entry, resolvedVars, null));
 
         return stack;
